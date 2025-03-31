@@ -1,16 +1,22 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using System.Windows.Input;
+using PowershellExecutor.Helpers;
 
 namespace PowerShellExecutor.ViewModels;
 
 /// <summary>
-/// ViewModel for the main window, handling command input and result display.
-/// Implements INotifyPropertyChanged to support data binding.
+/// ViewModel for the main window, handling command input and result display
 /// </summary>
 public class MainWindowViewModel : INotifyPropertyChanged
 {
     private string _commandInput = string.Empty;
     private string _commandResult = string.Empty;
+
+    /// <summary>
+    /// Command that triggers when the Enter key is pressed
+    /// </summary>
+    public ICommand EnterKeyCommand => new RelayCommand(ExecuteCommand);
     
     /// <summary>
     /// Gets or sets the command input text
@@ -42,6 +48,16 @@ public class MainWindowViewModel : INotifyPropertyChanged
                 OnPropertyChanged(nameof(CommandResult));
             }
         }
+    }
+
+    /// <summary>
+    /// Handles the execution of the command when Enter is pressed
+    /// </summary>
+    /// <param name="parameter">Optional parameter</param>
+    private void ExecuteCommand(object? parameter)
+    {
+        CommandResult = $"Command: '{CommandInput}' executed!";
+        CommandInput = string.Empty;
     }
     
     /// <summary>

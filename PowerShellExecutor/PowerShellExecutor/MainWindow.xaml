@@ -21,7 +21,13 @@
                  VerticalContentAlignment="Center"
                  Text="{Binding CommandInput, 
                     Mode=TwoWay, 
-                    UpdateSourceTrigger=PropertyChanged}"/>
+                    UpdateSourceTrigger=PropertyChanged}">
+            <TextBox.InputBindings>
+                <KeyBinding 
+                    Key="Enter" 
+                    Command="{Binding EnterKeyCommand}"/>
+            </TextBox.InputBindings>
+        </TextBox>
         
         <TextBox Grid.Row="1" Name="CommandResultTextBox"
                  Foreground="White"
