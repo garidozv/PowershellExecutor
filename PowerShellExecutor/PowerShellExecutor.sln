@@ -1,0 +1,22 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PowerShellExecutor", "PowerShellExecutor\PowerShellExecutor.csproj", "{B194DD76-6C27-488D-9ED4-69E847A7780F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PowerShellExecutor.Tests", "PowerShellExecutor.Tests\PowerShellExecutor.Tests.csproj", "{DB771E72-DF06-4126-9406-82523AF886BF}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{B194DD76-6C27-488D-9ED4-69E847A7780F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B194DD76-6C27-488D-9ED4-69E847A7780F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B194DD76-6C27-488D-9ED4-69E847A7780F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B194DD76-6C27-488D-9ED4-69E847A7780F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DB771E72-DF06-4126-9406-82523AF886BF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DB771E72-DF06-4126-9406-82523AF886BF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DB771E72-DF06-4126-9406-82523AF886BF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DB771E72-DF06-4126-9406-82523AF886BF}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
