@@ -4,9 +4,31 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:PowerShellExecutor"
+        xmlns:viewModel="clr-namespace:PowerShellExecutor.ViewModels"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
-    <Grid>
+        d:DataContext="{d:DesignInstance viewModel:MainWindowViewModel, IsDesignTimeCreatable=True}"
+        Title="PowerShellExecutor" Height="450" Width="800">
 
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        
+        <TextBox Grid.Row="0" Name="CommandInputTextBox"
+                 Background="DarkBlue"
+                 Foreground="Yellow"
+                 VerticalContentAlignment="Center"
+                 Text="{Binding CommandInput, 
+                    Mode=TwoWay, 
+                    UpdateSourceTrigger=PropertyChanged}"/>
+        
+        <TextBox Grid.Row="1" Name="CommandResultTextBox"
+                 Foreground="White"
+                 Background="DarkBlue"
+                 IsReadOnly="True"
+                 Text="{Binding CommandResult,
+                    Mode=OneWay,
+                    UpdateSourceTrigger=PropertyChanged}"/>
     </Grid>
 </Window>
