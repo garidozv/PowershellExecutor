@@ -12,4 +12,9 @@ public interface IMainWindow
     /// </summary>
     /// <param name="brush">The brush color to apply</param>
     public void SetCommandResultForeground(Brush brush); 
+    
+    /// <summary>
+    /// Closes the main window
+    /// </summary>
+    public void CloseMainWindow();
 }

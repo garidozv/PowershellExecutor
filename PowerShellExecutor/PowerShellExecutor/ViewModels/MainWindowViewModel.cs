@@ -92,6 +92,9 @@ public class MainWindowViewModel : INotifyPropertyChanged
     /// </summary>
     private void ExecuteCommand(object? parameter)
     {
+        if (HandleSpecialCommands())
+            return;
+        
         var executionResult = _powerShellService.ExecuteCommand(CommandInput);
         CommandResult = executionResult.Output;
         CommandInput = string.Empty;
@@ -109,6 +112,29 @@ public class MainWindowViewModel : INotifyPropertyChanged
         _mainWindow.SetCommandResultForeground(commandResultForeground);
     }
     
+    /// <summary>
+    /// Handles special commands that require custom behavior instead of standard execution.
+    /// </summary>
+    /// <returns>
+    /// Returns <c>true</c> if the command was handled as a special case, preventing further execution; 
+    /// otherwise, returns <c>false</c>.
+    /// </returns>
+    private bool HandleSpecialCommands()
+    {
+        switch (CommandInput.ToLower())
+        {
+            case "clear":
+                CommandInput = string.Empty;
+                CommandResult = string.Empty;
+                return true;
+            case "exit":
+                _mainWindow.CloseMainWindow();
+                return true;
+        }
+
+        return false;
+    }
+
     /// <summary>
     /// Event triggered when a property value changes
     /// </summary>

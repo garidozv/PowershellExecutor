@@ -23,6 +23,8 @@ public partial class MainWindow : Window, IMainWindow
 
     public void SetCommandResultForeground(Brush brush) => CommandResultTextBox.Foreground = brush;
 
+    public void CloseMainWindow() => Close();
+
     protected override void OnClosed(EventArgs e)
     {
         _powerShellService.Dispose();

@@ -36,12 +36,17 @@ public class PowerShellService : IDisposable
     /// </summary>
     public string WorkingDirectoryPath => _powerShell.Runspace.SessionStateProxy.Path.CurrentLocation.Path;
 
-    // TODO: Handle 'clear' and similar commands
+    // TODO: Improve the command execution
     /// <summary>
     /// Executes the given PowerShell command and returns the result
     /// </summary>
     /// <param name="command">The PowerShell command to execute</param>
     /// <returns>A <see cref="PowerShellCommandResult"/> containing the output and the output source</returns>
+    /// <remarks>
+    /// This method executes the command as a script. While this allows you to easily handle complex
+    /// commands, for example piped commands, it also makes you unable to handle some commands in a
+    /// special way, for example host interaction commands like clear, exit, etc.
+    /// </remarks>
     public PowerShellCommandResult ExecuteCommand(string command)
     {
         ArgumentNullException.ThrowIfNull(command);
