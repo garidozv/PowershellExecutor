@@ -15,19 +15,36 @@
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
         
-        <TextBox Grid.Row="0" Name="CommandInputTextBox"
-                 Background="DarkBlue"
-                 Foreground="Yellow"
-                 VerticalContentAlignment="Center"
-                 Text="{Binding CommandInput, 
-                    Mode=TwoWay, 
-                    UpdateSourceTrigger=PropertyChanged}">
-            <TextBox.InputBindings>
-                <KeyBinding 
-                    Key="Enter" 
-                    Command="{Binding EnterKeyCommand}"/>
-            </TextBox.InputBindings>
-        </TextBox>
+         <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"></ColumnDefinition>
+                <ColumnDefinition Width="*"></ColumnDefinition>
+            </Grid.ColumnDefinitions>
+            
+            <TextBox Grid.Column="0" Name="WorkingDirectoryPathTextBox"
+                     Foreground="White"
+                     Background="DarkBlue"
+                     IsReadOnly="True"
+                     VerticalContentAlignment="Center"
+                     Text="{Binding WorkingDirectoryPath, 
+                        Mode=OneWay, 
+                        UpdateSourceTrigger=PropertyChanged,
+                        StringFormat='PS {0}>'}"/>
+
+            <TextBox Grid.Column="1" Name="CommandInputTextBox"
+                     Background="DarkBlue"
+                     Foreground="Yellow"
+                     VerticalContentAlignment="Center"
+                     Text="{Binding CommandInput, 
+                Mode=TwoWay, 
+                UpdateSourceTrigger=PropertyChanged}">
+                <TextBox.InputBindings>
+                    <KeyBinding 
+                        Key="Enter" 
+                        Command="{Binding EnterKeyCommand}"/>
+                </TextBox.InputBindings>
+            </TextBox>
+        </Grid>
         
         <TextBox Grid.Row="1" Name="CommandResultTextBox"
                  Foreground="White"

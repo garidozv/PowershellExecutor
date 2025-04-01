@@ -18,15 +18,24 @@ public class MainWindowViewModel : INotifyPropertyChanged
     
     private string _commandInput = string.Empty;
     private string _commandResult = string.Empty;
+    private string _workingDirectoryPath = string.Empty;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="MainWindowViewModel"/> class
+    /// </summary>
+    /// <param name="powerShellService">The service for working with PowerShell</param>
+    /// <param name="mainWindow">The main window interface for UI interaction</param>
     public MainWindowViewModel(PowerShellService powerShellService, IMainWindow mainWindow)
     {
         _powerShellService = powerShellService;
         _mainWindow = mainWindow;
+        
+        // Set initial working directory path
+        WorkingDirectoryPath = _powerShellService.WorkingDirectoryPath;
     }
 
     /// <summary>
-    /// Command that triggers when the Enter key is pressed
+    /// Gets the command that triggers when the Enter key is pressed
     /// </summary>
     public ICommand EnterKeyCommand => new RelayCommand(ExecuteCommand);
     
@@ -61,6 +70,22 @@ public class MainWindowViewModel : INotifyPropertyChanged
             }
         }
     }
+    
+    /// <summary>
+    /// Gets or sets the working directory path
+    /// </summary>
+    public string WorkingDirectoryPath
+    {
+        get => _workingDirectoryPath;
+        set
+        {
+            if (value != _workingDirectoryPath)
+            {
+                _workingDirectoryPath = value;
+                OnPropertyChanged(nameof(WorkingDirectoryPath));
+            }
+        }
+    }
 
     /// <summary>
     /// Executes the PowerShell command represented by the current input and updates the UI with the result
@@ -70,6 +95,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
         var executionResult = _powerShellService.ExecuteCommand(CommandInput);
         CommandResult = executionResult.Output;
         CommandInput = string.Empty;
+        WorkingDirectoryPath = _powerShellService.WorkingDirectoryPath;
 
         var commandResultForeground = executionResult.OutputSource switch
         {
