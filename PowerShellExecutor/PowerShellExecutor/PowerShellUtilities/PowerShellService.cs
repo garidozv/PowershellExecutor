@@ -15,14 +15,26 @@ public class PowerShellService : IDisposable
     private readonly PowerShell _powerShell;
     
     /// <summary>
-    /// Creates and opens a dedicated <see cref="Runspace"/> for executing PowerShell commands
+    /// Creates and opens a dedicated <see cref="Runspace"/>.
+    /// Uses the created <see cref="Runspace"/> to create a <see cref="PowerShell"/> instance
+    /// used for executing PowerShell commands and sets its working directory to home directory
     /// </summary>
     public PowerShellService()
     {
         _runspace = RunspaceFactory.CreateRunspace();
         _runspace.Open();
         _powerShell = PowerShell.Create(_runspace);
+        
+        // Set the current runspace location to the home directory
+        var homeDirectoryPath = 
+            $"{Environment.GetEnvironmentVariable("HOMEDRIVE")}{Environment.GetEnvironmentVariable("HOMEPATH")}";
+        _powerShell.Runspace.SessionStateProxy.Path.SetLocation(homeDirectoryPath);
     }
+    
+    /// <summary>
+    /// Gets the path to current working directory of the PowerShell runspace
+    /// </summary>
+    public string WorkingDirectoryPath => _powerShell.Runspace.SessionStateProxy.Path.CurrentLocation.Path;
 
     // TODO: Handle 'clear' and similar commands
     /// <summary>
