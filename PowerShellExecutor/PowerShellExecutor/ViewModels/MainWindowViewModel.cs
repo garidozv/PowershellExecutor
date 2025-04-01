@@ -1,7 +1,10 @@
 using System.ComponentModel;
+using System.Windows.Media;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using PowershellExecutor.Helpers;
+using PowerShellExecutor.Interfaces;
+using PowerShellExecutor.PowerShellUtilities;
 
 namespace PowerShellExecutor.ViewModels;
 
@@ -10,8 +13,17 @@ namespace PowerShellExecutor.ViewModels;
 /// </summary>
 public class MainWindowViewModel : INotifyPropertyChanged
 {
+    private readonly PowerShellService _powerShellService;
+    private readonly IMainWindow _mainWindow;
+    
     private string _commandInput = string.Empty;
     private string _commandResult = string.Empty;
+
+    public MainWindowViewModel(PowerShellService powerShellService, IMainWindow mainWindow)
+    {
+        _powerShellService = powerShellService;
+        _mainWindow = mainWindow;
+    }
 
     /// <summary>
     /// Command that triggers when the Enter key is pressed
@@ -51,13 +63,24 @@ public class MainWindowViewModel : INotifyPropertyChanged
     }
 
     /// <summary>
-    /// Handles the execution of the command when Enter is pressed
+    /// Executes the PowerShell command represented by the current input and updates the UI with the result
     /// </summary>
-    /// <param name="parameter">Optional parameter</param>
     private void ExecuteCommand(object? parameter)
     {
-        CommandResult = $"Command: '{CommandInput}' executed!";
+        var executionResult = _powerShellService.ExecuteCommand(CommandInput);
+        CommandResult = executionResult.Output;
         CommandInput = string.Empty;
+
+        var commandResultForeground = executionResult.OutputSource switch
+        {
+            ResultOutputSource.ExecutionError => Brushes.Red,
+            ResultOutputSource.ParseError => Brushes.Red,
+            ResultOutputSource.Exception => Brushes.DarkRed,
+            ResultOutputSource.SuccessfulExecution => Brushes.White,
+            _ => Brushes.White
+        };
+        
+        _mainWindow.SetCommandResultForeground(commandResultForeground);
     }
     
     /// <summary>
