@@ -14,6 +14,7 @@ namespace PowerShellExecutor.ViewModels;
 public class MainWindowViewModel : INotifyPropertyChanged
 {
     private readonly PowerShellService _powerShellService;
+    private readonly CommandHistory _commandHistory;
     private readonly IMainWindow _mainWindow;
     
     private string _commandInput = string.Empty;
@@ -25,11 +26,12 @@ public class MainWindowViewModel : INotifyPropertyChanged
     /// </summary>
     /// <param name="powerShellService">The service for working with PowerShell</param>
     /// <param name="mainWindow">The main window interface for UI interaction</param>
-    public MainWindowViewModel(PowerShellService powerShellService, IMainWindow mainWindow)
+    public MainWindowViewModel(PowerShellService powerShellService, IMainWindow mainWindow, CommandHistory commandHistory)
     {
         _powerShellService = powerShellService;
         _mainWindow = mainWindow;
-        
+        _commandHistory = commandHistory;
+
         // Set initial working directory path
         WorkingDirectoryPath = _powerShellService.WorkingDirectoryPath;
     }
@@ -38,6 +40,14 @@ public class MainWindowViewModel : INotifyPropertyChanged
     /// Gets the command that triggers when the Enter key is pressed
     /// </summary>
     public ICommand EnterKeyCommand => new RelayCommand(ExecuteCommand);
+    /// <summary>
+    /// Gets the command that triggers when the Up key is pressed
+    /// </summary>
+    public ICommand UpKeyCommand => new RelayCommand(SetCommandToHistoryNext);
+    /// <summary>
+    /// Gets the command that triggers when the Down key is pressed
+    /// </summary>
+    public ICommand DownKeyCommand => new RelayCommand(SetCommandToHistoryPrev);
     
     /// <summary>
     /// Gets or sets the command input text
@@ -92,6 +102,8 @@ public class MainWindowViewModel : INotifyPropertyChanged
     /// </summary>
     private void ExecuteCommand(object? parameter)
     {
+        _commandHistory.AddCommand(CommandInput);
+        
         if (HandleSpecialCommands())
             return;
         
@@ -133,6 +145,38 @@ public class MainWindowViewModel : INotifyPropertyChanged
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// Sets the command input to the next command in the history.
+    /// If at the start of history, the command will be cleared
+    /// </summary>
+    private void SetCommandToHistoryPrev(object? parameter)
+    {
+        var prevCommand = _commandHistory.PrevCommand();
+        
+        /*
+         * When end of the history is reached first PrevCommand invocation
+         * will return the last command in history, which is already displayed.
+         * So we have to do one additional call to PrevCommand to get the right
+         * command
+         */
+        if (prevCommand is not null && prevCommand.Equals(CommandInput))
+            prevCommand = _commandHistory.PrevCommand();
+        
+        CommandInput = prevCommand ?? string.Empty;
+    }
+    
+    /// <summary>
+    /// Sets the command input to the previous command in the history.
+    /// If the end of history is reached, the command will not be changed
+    /// </summary>
+    private void SetCommandToHistoryNext(object? parameter)
+    {
+        var nextCommand = _commandHistory.NextCommand();
+        
+        if (nextCommand is not null)
+            CommandInput = nextCommand;
     }
 
     /// <summary>

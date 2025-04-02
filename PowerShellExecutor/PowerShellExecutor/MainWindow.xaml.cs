@@ -18,7 +18,7 @@ public partial class MainWindow : Window, IMainWindow
         InitializeComponent();
 
         _powerShellService = new PowerShellService();
-        DataContext = new MainWindowViewModel(_powerShellService, this);
+        DataContext = new MainWindowViewModel(_powerShellService, this, new CommandHistory());
     }
 
     public void SetCommandResultForeground(Brush brush) => CommandResultTextBox.Foreground = brush;

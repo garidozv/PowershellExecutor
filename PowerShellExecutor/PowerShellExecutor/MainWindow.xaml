@@ -42,6 +42,12 @@
                     <KeyBinding 
                         Key="Enter" 
                         Command="{Binding EnterKeyCommand}"/>
+                    <KeyBinding 
+                        Key="Up" 
+                        Command="{Binding UpKeyCommand}"/>
+                    <KeyBinding 
+                        Key="Down" 
+                        Command="{Binding DownKeyCommand}"/>
                 </TextBox.InputBindings>
             </TextBox>
         </Grid>
