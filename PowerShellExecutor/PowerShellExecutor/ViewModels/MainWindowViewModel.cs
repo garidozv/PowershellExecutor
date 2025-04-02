@@ -165,6 +165,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
             prevCommand = _commandHistory.PrevCommand();
         
         CommandInput = prevCommand ?? string.Empty;
+        _mainWindow.SetCommandInputCaretIndex();
     }
     
     /// <summary>
@@ -176,7 +177,10 @@ public class MainWindowViewModel : INotifyPropertyChanged
         var nextCommand = _commandHistory.NextCommand();
         
         if (nextCommand is not null)
+        {
             CommandInput = nextCommand;
+            _mainWindow.SetCommandInputCaretIndex();
+        }
     }
 
     /// <summary>

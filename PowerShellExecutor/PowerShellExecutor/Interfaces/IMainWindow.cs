@@ -17,4 +17,15 @@ public interface IMainWindow
     /// Closes the main window
     /// </summary>
     public void CloseMainWindow();
+    
+    /// <summary>
+    /// Sets the caret index to the specified value if provided; otherwise, moves the caret to the end of the text
+    /// </summary>
+    /// <param name="index">Optional caret index value</param>
+    void SetCommandInputCaretIndex(int? index = null);
+    
+    /// <summary>
+    /// Gets the current caret index value
+    /// </summary>
+    int GetCommandInputCaretIndex();
 }

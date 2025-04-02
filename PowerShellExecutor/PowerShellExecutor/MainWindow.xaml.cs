@@ -18,12 +18,19 @@ public partial class MainWindow : Window, IMainWindow
         InitializeComponent();
 
         _powerShellService = new PowerShellService();
-        DataContext = new MainWindowViewModel(_powerShellService, this, new CommandHistory());
+        DataContext = new MainWindowViewModel(
+            _powerShellService, this, new CommandHistory());
     }
 
-    public void SetCommandResultForeground(Brush brush) => CommandResultTextBox.Foreground = brush;
+    public void SetCommandResultForeground(Brush brush) => 
+        CommandResultTextBox.Foreground = brush;
 
     public void CloseMainWindow() => Close();
+
+    public void SetCommandInputCaretIndex(int? index = null) =>
+        CommandInputTextBox.CaretIndex = index ?? CommandInputTextBox.Text.Length;
+
+    public int GetCommandInputCaretIndex() => CommandResultTextBox.CaretIndex;
 
     protected override void OnClosed(EventArgs e)
     {
