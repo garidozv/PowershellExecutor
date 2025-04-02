@@ -30,7 +30,7 @@ public partial class MainWindow : Window, IMainWindow
     public void SetCommandInputCaretIndex(int? index = null) =>
         CommandInputTextBox.CaretIndex = index ?? CommandInputTextBox.Text.Length;
 
-    public int GetCommandInputCaretIndex() => CommandResultTextBox.CaretIndex;
+    public int GetCommandInputCaretIndex() => CommandInputTextBox.CaretIndex;
 
     protected override void OnClosed(EventArgs e)
     {
