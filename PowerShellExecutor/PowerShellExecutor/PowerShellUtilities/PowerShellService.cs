@@ -94,10 +94,23 @@ public class PowerShellService : IDisposable
 
         return new(resultOutput, resultOutputSource);
     }
+    
+    /// <summary>
+    /// Retrieves the list of command completions based on the given input and cursor position
+    /// </summary>
+    /// <param name="input">The input string for which completions are to be generated</param>
+    /// <param name="cursorIndex">The index of the cursor position in the input string</param>
+    /// <returns>A <see cref="CommandCompletion"/> object containing the available completions</returns>
+    public CommandCompletion GetCommandCompletions(string input, int cursorIndex) =>
+        CommandCompletion.CompleteInput(input, cursorIndex, null, _powerShell);
 
-    public CommandCompletion GetCommandCompletions(string command, int cursorIndex) =>
-        CommandCompletion.CompleteInput(command, cursorIndex, null, _powerShell);
-
+    /// <summary>
+    /// Determines whether the given completion corresponds to a directory path.
+    /// If the provided completion is a relative path, it is combined with the
+    /// current working directory to form the full path.
+    /// </summary>
+    /// <param name="completion">The completion string to check</param>
+    /// <returns><c>true</c> if the completion corresponds to a directory; otherwise, <c>false</c>.</returns>
     public bool IsDirectoryCompletion(string completion)
     {
         ArgumentNullException.ThrowIfNull(completion);
