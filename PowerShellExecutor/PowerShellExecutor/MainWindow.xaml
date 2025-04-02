@@ -48,6 +48,9 @@
                     <KeyBinding 
                         Key="Down" 
                         Command="{Binding DownKeyCommand}"/>
+                    <KeyBinding 
+                        Key="Escape" 
+                        Command="{Binding EscapeKeyCommand}"/>
                 </TextBox.InputBindings>
             </TextBox>
         </Grid>

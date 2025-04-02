@@ -48,6 +48,10 @@ public class MainWindowViewModel : INotifyPropertyChanged
     /// Gets the command that triggers when the Down key is pressed
     /// </summary>
     public ICommand DownKeyCommand => new RelayCommand(SetCommandToHistoryPrev);
+    /// <summary>
+    /// Gets the command that triggers when the Escape key is pressed
+    /// </summary>
+    public ICommand EscapeKeyCommand => new RelayCommand(ResetCommandInput);
     
     /// <summary>
     /// Gets or sets the command input text
@@ -181,6 +185,16 @@ public class MainWindowViewModel : INotifyPropertyChanged
             CommandInput = nextCommand;
             _mainWindow.SetCommandInputCaretIndex();
         }
+    }
+
+    /// <summary>
+    /// Clears the command input and resets any existing state related
+    /// to the input
+    /// </summary>
+    private void ResetCommandInput(object? parameter)
+    {
+        _commandHistory.MoveToStart();
+        CommandInput = string.Empty;
     }
 
     /// <summary>
