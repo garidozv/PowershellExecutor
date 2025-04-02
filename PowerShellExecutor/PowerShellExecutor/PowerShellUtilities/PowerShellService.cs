@@ -1,3 +1,4 @@
+using System.IO;
 using System.Management.Automation;
 using System.Management.Automation.Language;
 using System.Management.Automation.Runspaces;
@@ -92,6 +93,17 @@ public class PowerShellService : IDisposable
         }
 
         return new(resultOutput, resultOutputSource);
+    }
+
+    public CommandCompletion GetCommandCompletions(string command, int cursorIndex) =>
+        CommandCompletion.CompleteInput(command, cursorIndex, null, _powerShell);
+
+    public bool IsDirectoryCompletion(string completion)
+    {
+        ArgumentNullException.ThrowIfNull(completion);
+        
+        var fullPath = Path.IsPathRooted(completion) ? completion : Path.Combine(WorkingDirectoryPath, completion);
+        return Directory.Exists(fullPath);
     }
     
     public void Dispose()
