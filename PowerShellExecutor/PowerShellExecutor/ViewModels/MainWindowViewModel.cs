@@ -1,8 +1,11 @@
 using System.ComponentModel;
+using System.IO;
+using System.Management.Automation;
 using System.Windows.Media;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using PowershellExecutor.Helpers;
+using PowerShellExecutor.Helpers;
 using PowerShellExecutor.Interfaces;
 using PowerShellExecutor.PowerShellUtilities;
 
@@ -16,6 +19,10 @@ public class MainWindowViewModel : INotifyPropertyChanged
     private readonly PowerShellService _powerShellService;
     private readonly CommandHistory _commandHistory;
     private readonly IMainWindow _mainWindow;
+
+    private CommandCompletion? _currentCompletion;
+    private string _originalCompletionInput;
+    private bool _isInternalInputTextChange = false;
     
     private string _commandInput = string.Empty;
     private string _commandResult = string.Empty;
@@ -52,7 +59,15 @@ public class MainWindowViewModel : INotifyPropertyChanged
     /// Gets the command that triggers when the Escape key is pressed
     /// </summary>
     public ICommand EscapeKeyCommand => new RelayCommand(ResetCommandInput);
-    
+    /// <summary>
+    /// Gets the command that triggers when the Tab key is pressed
+    /// </summary>
+    public ICommand TabKeyCommand => new RelayCommand(GetNextCompletion);
+    /// <summary>
+    /// Gets the command that triggers when input text is changed
+    /// </summary>
+    public ICommand InputTextChangedCommand => new RelayCommand(OnInputTextChanged);
+
     /// <summary>
     /// Gets or sets the command input text
     /// </summary>
@@ -195,6 +210,73 @@ public class MainWindowViewModel : INotifyPropertyChanged
     {
         _commandHistory.MoveToStart();
         CommandInput = string.Empty;
+    }
+    
+    /// <summary>
+    /// Handles the next completion suggestion for the command input
+    /// </summary>
+    private void GetNextCompletion(object? parameter)
+    {
+        if (_currentCompletion is null) 
+        {
+            _currentCompletion = _powerShellService.GetCommandCompletions(
+                CommandInput, _mainWindow.GetCommandInputCaretIndex());
+            _originalCompletionInput = CommandInput;
+        }
+        
+        if (_currentCompletion.CompletionMatches.Count == 0) return;
+            
+        _isInternalInputTextChange = true;
+        
+        var nextCompletion = _currentCompletion.GetNextResult(true);
+        var completionText = nextCompletion.CompletionText;
+        
+        /*
+         * PowerShell automatically appends directory separator at the end of directory completions.
+         * Directory completions have the ProviderContainer completion result type, but they
+         * are not the only completion type to have it, so we have to perform additional
+         * check to make sure that the completion really represents a directory, after which
+         * we can append the directory separator.
+         */
+        if (nextCompletion.ResultType == CompletionResultType.ProviderContainer &&
+            _powerShellService.IsDirectoryCompletion(completionText) &&
+            !completionText.EndsWith(Path.DirectorySeparatorChar))
+            completionText += Path.DirectorySeparatorChar;
+        
+        CommandInput = _originalCompletionInput.ReplaceSegment(
+            _currentCompletion.ReplacementIndex, 
+            _currentCompletion.ReplacementLength,
+            completionText);
+        _mainWindow.SetCommandInputCaretIndex(_currentCompletion.ReplacementIndex + completionText.Length);
+
+        /*
+         * If there is only one completion match, reset the completions.
+         * This allows the user to progressively complete the path with multiple Tab presses.
+         *
+         * For example, if the user types './De' and there is a single completion './Desktop',
+         * the first Tab press will complete it to './Desktop'. A subsequent Tab press will append further completions
+         * like './Desktop/someFile', similar to how PowerShell behaves.
+         *
+         * However, if there are multiple completions ('./De' could complete to './Desktop' and './Documents'),
+         * Tab will cycle through these completions, and the next completion will not be generated until the input changes.
+         */
+        if (_currentCompletion.CompletionMatches.Count == 1)
+            _currentCompletion = null;
+    }
+
+    /// <summary>
+    /// Handles changes to the input text if change is not internal
+    /// </summary>
+    private void OnInputTextChanged(object parameter)
+    {
+        if (_isInternalInputTextChange)
+        {
+            _isInternalInputTextChange = false;
+            return;
+        }
+
+        // If the change was user input, reset the current completion state
+        _currentCompletion = null;
     }
 
     /// <summary>

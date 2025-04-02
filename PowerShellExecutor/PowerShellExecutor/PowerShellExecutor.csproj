@@ -10,6 +10,7 @@
 
     <ItemGroup>
       <PackageReference Include="Microsoft.PowerShell.SDK" Version="7.4.7" />
+      <PackageReference Include="Microsoft.Xaml.Behaviors.Wpf" Version="1.1.135" />
     </ItemGroup>
 
 </Project>
