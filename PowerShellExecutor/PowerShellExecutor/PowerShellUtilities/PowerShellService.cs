@@ -3,7 +3,6 @@ using System.Management.Automation;
 using System.Management.Automation.Language;
 using System.Management.Automation.Runspaces;
 using System.Reflection;
-using PowerShellExecutor.Helpers;
 
 namespace PowerShellExecutor.PowerShellUtilities;
 
@@ -17,8 +16,8 @@ public class PowerShellService : IDisposable
     private readonly Runspace _runspace;
     private readonly PowerShell _powerShell;
     
-    private MethodInfo? _exitCommandHanlder;
-    private readonly HashSet<string> _commandOverrides = new();
+    private MethodInfo? _exitCommandHandler;
+    private readonly HashSet<string> _commandOverrides = [];
     
     /// <summary>
     /// Creates and opens a dedicated <see cref="Runspace"/>.
@@ -76,7 +75,7 @@ public class PowerShellService : IDisposable
                 if (method.GetParameters().Length != 0 || method.ReturnType != typeof(void))
                     throw new InvalidOperationException("Exit command override must be a parameterless void method");
                     
-                _exitCommandHanlder = method;
+                _exitCommandHandler = method;
             }
             else
             {
@@ -106,68 +105,76 @@ public class PowerShellService : IDisposable
         if (homeDirectoryPath is not null)
             _powerShell.Runspace.SessionStateProxy.Path.SetLocation(homeDirectoryPath);
     }
-    
+
     /// <summary>
-    /// Executes the given PowerShell script and returns the result
+    /// Executes the given PowerShell script and returns the execution result
     /// </summary>
-    /// <param name="script">The PowerShell script to execute</param>
-    /// <returns>A <see cref="PowerShellCommandResult"/> containing the output and the output source</returns>
-    /// <remarks>
-    /// This method executes the command as a script. While this allows you to easily handle complex
-    /// commands, like example piped commands, it also makes you unable to handle some commands in a
-    /// specific way.
-    /// For this reason, <see cref="PowerShellService"/> allows you to register overrides for cmdlets
-    /// or functions, that will be invoked instead of default implementations.
-    /// </remarks>
-    public PowerShellCommandResult ExecuteScript(string script)
+    /// <param name="script">The PowerShell script to be executed</param>
+    /// <returns>A <see cref="PowerShellExecutionResult"/> containing the details of the execution</returns>
+    public PowerShellExecutionResult ExecuteScript(string script)
     {
         ArgumentNullException.ThrowIfNull(script);
         
-        if (string.IsNullOrEmpty(script)) 
-            return new(string.Empty, ResultOutputSource.SuccessfulExecution);
-        
-        // Try to parse the command to detect syntax errors
+        var res = new PowerShellExecutionResult
+        {
+            IsSuccessful = true,
+            Script = script,
+        };
+
+        if (string.IsNullOrEmpty(script))
+            return res;
+
         Parser.ParseInput(script, out var tokens, out var errors);
 
         if (errors.Length > 0)
-            return new(errors.ToItemListString(), ResultOutputSource.ParseError);
-
-        var containsExit = ScriptContainsExitCommand(tokens);
-        string resultOutput;
-        ResultOutputSource resultOutputSource;
+        {
+            res.IsSuccessful = false;
+            res.ParseErrors = errors;
+            return res;
+        }
         
+        ExecuteScriptInternal(script, tokens, res);
+
+        return res;
+    }
+
+    /// <summary>
+    /// Executes a PowerShell script after parsing and validating the input script.
+    /// Updates the provided <see cref="PowerShellExecutionResult"/> with the outcome of the script execution
+    /// </summary>
+    /// <param name="script">The PowerShell script to be executed</param>
+    /// <param name="tokens">The tokens parsed from the input script</param>
+    /// <param name="result">An instance of <see cref="PowerShellExecutionResult"/> used to hold the execution results</param>
+    private void ExecuteScriptInternal(string script, Token[] tokens, PowerShellExecutionResult result)
+    {
+        var containsExit = ScriptContainsExitCommand(tokens);
+
         try
         {
-            // Execute the script
+            _powerShell.Streams.ClearStreams();
+            _powerShell.Commands.Clear();
+            
             _powerShell.AddScript(script);
             var invocationResult = _powerShell.Invoke();
 
-            if (_powerShell.HadErrors)
-            {
-                resultOutputSource = ResultOutputSource.ExecutionError;
-                resultOutput = _powerShell.Streams.Error.ToItemListString();
-            }
-            else
-            {
-                resultOutputSource = ResultOutputSource.SuccessfulExecution;
-                resultOutput = invocationResult.ToItemListString();
-            }
+            result.IsSuccessful = !_powerShell.HadErrors;
+            result.CommandResults = invocationResult.Count > 0 ? invocationResult : null;
+            result.Errors = _powerShell.Streams.Error.Count > 0 ? _powerShell.Streams.Error : null;
+            result.VerboseMessages = _powerShell.Streams.Verbose.Count > 0 ? _powerShell.Streams.Verbose : null;
+            result.Warnings = _powerShell.Streams.Warning.Count > 0 ? _powerShell.Streams.Warning : null;
+            result.DebugMessages = _powerShell.Streams.Debug.Count > 0 ? _powerShell.Streams.Debug : null;
+            result.InformationMessages = _powerShell.Streams.Information.Count > 0 ? _powerShell.Streams.Information : null;
         }
-        catch (Exception ex)
+        catch
         {
-            resultOutputSource = ResultOutputSource.Exception;
-            resultOutput = $"Error executing command: {ex.Message}";
-        }
-        finally
-        {
-            _powerShell.Commands.Clear();
-            _powerShell.Streams.ClearStreams();
+            // Possibly do not re-throw, but handle the exception by storing the exception message in the execution result
+            throw;
         }
 
-        if (containsExit && _exitCommandHanlder is not null)
-            _exitCommandHanlder.Invoke(null, null);
-            
-        return new(resultOutput, resultOutputSource);
+        if (result.IsSuccessful && containsExit && _exitCommandHandler is not null)
+        {
+            _exitCommandHandler.Invoke(null, null);
+        }
     }
     
     /// <summary>
@@ -191,7 +198,7 @@ public class PowerShellService : IDisposable
         var script = $"get-command {name} | where {{$_.CommandType -eq 'Function' -or $_.CommandType -eq 'Cmdlet'}}";
         var res = ExecuteScript(script);
         
-        return res.OutputSource == ResultOutputSource.SuccessfulExecution && res.Output.Length > 0;
+        return res.IsSuccessful && (res.CommandResults?.Any() ?? false);
     }
 
     /// <summary>
