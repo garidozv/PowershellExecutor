@@ -3,7 +3,9 @@ using System.IO;
 using System.Management.Automation;
 using System.Windows.Media;
 using System.Runtime.CompilerServices;
+using System.Windows;
 using System.Windows.Input;
+using System.Windows.Threading;
 using PowershellExecutor.Helpers;
 using PowerShellExecutor.Helpers;
 using PowerShellExecutor.PowerShellUtilities;
@@ -15,18 +17,34 @@ namespace PowerShellExecutor.ViewModels;
 /// </summary>
 public class MainWindowViewModel : INotifyPropertyChanged
 {
+    private static readonly Brush DefaultResultForeground = Brushes.White;
+    private static readonly Brush CommandSuccessResultForeground = Brushes.White;
+    private static readonly Brush CommandErrorResultForeground = Brushes.Red;
+    private static readonly Brush ParseErrorResultForeground = Brushes.Red;
+    private static readonly Brush ExceptionResultForeground = Brushes.DarkRed;
+    
     private readonly PowerShellService _powerShellService;
     private readonly CommandHistory _commandHistory;
 
     private CommandCompletion? _currentCompletion;
     private string _originalCompletionInput;
     private bool _reactToInputTextChange = true;
+    private bool _commandResultDisplayHandled = false;
     
     private string _commandInput = string.Empty;
     private string _commandResult = string.Empty;
     private string _workingDirectoryPath = string.Empty;
     private Brush _resultForeground = Brushes.White;
     private int _commandInputCaretIndex = 0;
+    private bool _isResultTextBoxReadOnly = true;
+    
+    private readonly AutoResetEvent _resultTextBoxInputReady = new(false);
+    private readonly Dispatcher _dispatcher = Application.Current.Dispatcher;
+
+    /// <summary>
+    /// Gets or sets the action that will be invoked to close the main application window
+    /// </summary>
+    public Action CloseWindowAction { get; set; }
 
     /// <summary>
     /// Initializes a new instance of the <see cref="MainWindowViewModel"/> class
@@ -38,34 +56,41 @@ public class MainWindowViewModel : INotifyPropertyChanged
         _powerShellService = powerShellService;
         _commandHistory = commandHistory;
 
+        PowerShellCommandOverrides.ViewModelInstance = this;
+        _powerShellService.RegisterCommandOverrides<PowerShellCommandOverrides>();
+
         // Set initial working directory path
         WorkingDirectoryPath = _powerShellService.WorkingDirectoryPath;
     }
 
     /// <summary>
-    /// Gets the command that triggers when the Enter key is pressed
+    /// Gets the command that triggers when the Enter key is pressed on CommandInputTextBox
     /// </summary>
-    public ICommand EnterKeyCommand => new AsyncRelayCommand(ExecuteCommand);
+    public ICommand CommandInputEnterKeyCommand => new AsyncRelayCommand(ExecuteCommand);
     /// <summary>
-    /// Gets the command that triggers when the Up key is pressed
+    /// Gets the command that triggers when the Up key is pressed on CommandInputTextBox
     /// </summary>
-    public ICommand UpKeyCommand => new RelayCommand(SetCommandToHistoryNext);
+    public ICommand CommandInputUpKeyCommand => new RelayCommand(SetCommandToHistoryNext);
     /// <summary>
-    /// Gets the command that triggers when the Down key is pressed
+    /// Gets the command that triggers when the Down key is pressed on CommandInputTextBox
     /// </summary>
-    public ICommand DownKeyCommand => new RelayCommand(SetCommandToHistoryPrev);
+    public ICommand CommandInputDownKeyCommand => new RelayCommand(SetCommandToHistoryPrev);
     /// <summary>
-    /// Gets the command that triggers when the Escape key is pressed
+    /// Gets the command that triggers when the Escape key is pressed on CommandInputTextBox
     /// </summary>
-    public ICommand EscapeKeyCommand => new RelayCommand(ResetCommandInput);
+    public ICommand CommandInputEscapeKeyCommand => new RelayCommand(ResetCommandInput);
     /// <summary>
-    /// Gets the command that triggers when the Tab key is pressed
+    /// Gets the command that triggers when the Tab key is pressed on CommandInputTextBox
     /// </summary>
-    public ICommand TabKeyCommand => new RelayCommand(GetNextCompletion);
+    public ICommand CommandInputTabKeyCommand => new RelayCommand(GetNextCompletion);
     /// <summary>
     /// Gets the command that triggers when input text is changed
     /// </summary>
     public ICommand InputTextChangedCommand => new RelayCommand(OnInputTextChanged);
+    /// <summary>
+    /// Gets the command that triggers when the Enter key is pressed on CommandResultTextBox
+    /// </summary>
+    public ICommand CommandResultEnterKeyCommand => new RelayCommand(ReadHostInputSubmitted);
     
     /// <summary>
     /// Gets or sets the result text foreground color
@@ -132,7 +157,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
     }
     
     /// <summary>
-    /// Gets or sets the input text caret index
+    /// Gets or sets the command input text caret index
     /// </summary>
     public int CommandInputCaretIndex
     {
@@ -148,26 +173,51 @@ public class MainWindowViewModel : INotifyPropertyChanged
     }
     
     /// <summary>
+    /// Gets or sets the result text box IsReadOnly property
+    /// </summary>
+    public bool IsResultTextBoxReadOnly
+    {
+        get => _isResultTextBoxReadOnly;
+        set
+        {
+            if (value != _isResultTextBoxReadOnly)
+            {
+                _isResultTextBoxReadOnly = value;
+                OnPropertyChanged(nameof(IsResultTextBoxReadOnly));
+            }
+        }
+    }
+    
+    /// <summary>
     /// Executes the PowerShell command represented by the current input and updates the UI with the result
     /// </summary>
     private async Task ExecuteCommand(object? parameter)
     {
         _commandHistory.AddCommand(CommandInput);
         
+        CommandResult = string.Empty;
+        ResultForeground = DefaultResultForeground;
+        
         var executionResult = await Task.Run(() => _powerShellService.ExecuteScript(CommandInput));
         
-        CommandInput = string.Empty;
         WorkingDirectoryPath = _powerShellService.WorkingDirectoryPath;
+        CommandInput = string.Empty;
+
+        if (_commandResultDisplayHandled)
+        {
+            _commandResultDisplayHandled = false;
+            return;
+        }
         
         CommandResult = executionResult.Output;
-        
+    
         ResultForeground = executionResult.OutputSource switch
         {
-            ResultOutputSource.ExecutionError => Brushes.Red,
-            ResultOutputSource.ParseError => Brushes.Red,
-            ResultOutputSource.Exception => Brushes.DarkRed,
-            ResultOutputSource.SuccessfulExecution => Brushes.White,
-            _ => Brushes.White
+            ResultOutputSource.ExecutionError => CommandErrorResultForeground,
+            ResultOutputSource.ParseError => ParseErrorResultForeground,
+            ResultOutputSource.Exception => ExceptionResultForeground,
+            ResultOutputSource.SuccessfulExecution => CommandSuccessResultForeground,
+            _ => DefaultResultForeground
         };
     }
 
@@ -283,6 +333,55 @@ public class MainWindowViewModel : INotifyPropertyChanged
         // If the change was user input, reset the current completion state
         _currentCompletion = null;
     }
+    
+    /// <summary>
+    /// Handles input submission for Read-Host command
+    /// </summary>
+    private void ReadHostInputSubmitted(object obj) => _resultTextBoxInputReady.Set();
+
+    /// <summary>
+    /// Handles the Write-Host command by updating the command result text boc with the provided text
+    /// </summary>
+    /// <param name="text">The text to display in the command result output</param>
+    public void WriteHost(string text)
+    {
+        CommandResult = text;
+        _commandResultDisplayHandled = true;
+    }
+
+    /// <summary>
+    /// Handles the Read-Host command by waiting for user input in the command result text box
+    /// </summary>
+    /// <returns>The string entered by the user into the result text box</returns>
+    /// <remarks>This is a blocking method</remarks>
+    public string ReadHost()
+    {
+        IsResultTextBoxReadOnly = false;
+        CommandResult = string.Empty;
+        
+        _resultTextBoxInputReady.WaitOne();
+        
+        var res = CommandResult;
+        
+        IsResultTextBoxReadOnly = true;
+        CommandResult = string.Empty;
+        
+        return res;
+    }
+
+    /// <summary>
+    /// Handles the Clear-Host command by clearing the command result text box
+    /// </summary>
+    public void ClearHost()
+    {
+        CommandResult = string.Empty;
+        _commandResultDisplayHandled = true;
+    }
+
+    /// <summary>
+    /// Handles the Exit-Host command by invoking the <see cref="CloseWindowAction"/>
+    /// </summary>
+    public void ExitHost() => _dispatcher.Invoke(CloseWindowAction);
 
     /// <summary>
     /// Event triggered when a property value changes

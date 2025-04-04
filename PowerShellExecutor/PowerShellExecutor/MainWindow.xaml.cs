@@ -18,6 +18,7 @@ public partial class MainWindow : Window
 
         _powerShellService = new PowerShellService();
         var viewModel = new MainWindowViewModel(_powerShellService, new CommandHistory());
+        viewModel.CloseWindowAction = Close;
         
         DataContext = viewModel;
     }

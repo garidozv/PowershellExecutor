@@ -54,19 +54,19 @@
                 <TextBox.InputBindings>
                     <KeyBinding 
                         Key="Enter" 
-                        Command="{Binding EnterKeyCommand}"/>
+                        Command="{Binding CommandInputEnterKeyCommand}"/>
                     <KeyBinding 
                         Key="Up" 
-                        Command="{Binding UpKeyCommand}"/>
+                        Command="{Binding CommandInputUpKeyCommand}"/>
                     <KeyBinding 
                         Key="Down" 
-                        Command="{Binding DownKeyCommand}"/>
+                        Command="{Binding CommandInputDownKeyCommand}"/>
                     <KeyBinding 
                         Key="Escape" 
-                        Command="{Binding EscapeKeyCommand}"/>
+                        Command="{Binding CommandInputEscapeKeyCommand}"/>
                     <KeyBinding 
                         Key="Tab" 
-                        Command="{Binding TabKeyCommand}"/>
+                        Command="{Binding CommandInputTabKeyCommand}"/>
                 </TextBox.InputBindings>
             </TextBox>
         </Grid>
@@ -76,9 +76,18 @@
                     Mode=OneWay,
                     UpdateSourceTrigger=PropertyChanged}"
                  Background="DarkBlue"
-                 IsReadOnly="True"
-                 Text="{Binding CommandResult,
+                 IsReadOnly="{Binding IsResultTextBoxReadOnly,
                     Mode=OneWay,
-                    UpdateSourceTrigger=PropertyChanged}"/>
+                    UpdateSourceTrigger=PropertyChanged}"
+                 Text="{Binding CommandResult,
+                    Mode=TwoWay,
+                    UpdateSourceTrigger=PropertyChanged}">
+            
+            <TextBox.InputBindings>
+                <KeyBinding 
+                    Key="Enter" 
+                    Command="{Binding CommandResultEnterKeyCommand}"/>
+            </TextBox.InputBindings>
+        </TextBox>
     </Grid>
 </Window>
