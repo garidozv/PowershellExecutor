@@ -3,7 +3,6 @@ using System.IO;
 using System.Management.Automation;
 using System.Windows.Media;
 using System.Runtime.CompilerServices;
-using System.Windows.Input;
 using PowershellExecutor.Helpers;
 using PowerShellExecutor.Helpers;
 using PowerShellExecutor.PowerShellUtilities;
@@ -13,13 +12,16 @@ namespace PowerShellExecutor.ViewModels;
 /// <summary>
 /// ViewModel for the main window, handling command input and result display
 /// </summary>
-public class MainWindowViewModel : INotifyPropertyChanged
+public class MainWindowViewModel
 {
-    private static readonly Brush DefaultResultForeground = Brushes.White;
-    private static readonly Brush CommandSuccessResultForeground = Brushes.White;
-    private static readonly Brush CommandErrorResultForeground = Brushes.Red;
-    private static readonly Brush ParseErrorResultForeground = Brushes.Red;
-    private static readonly Brush ExceptionResultForeground = Brushes.DarkRed;
+    private static class ResultForegrounds
+    {
+        public static readonly Brush Default = Brushes.White;
+        public static readonly Brush CommandSuccess = Brushes.White;
+        public static readonly Brush CommandError = Brushes.Red;
+        public static readonly Brush ParseError = Brushes.Red;
+        public static readonly Brush Exception = Brushes.DarkRed;
+    }
     
     private readonly PowerShellService _powerShellService;
     private readonly CommandHistory _commandHistory;
@@ -27,32 +29,29 @@ public class MainWindowViewModel : INotifyPropertyChanged
     private CommandCompletion? _currentCompletion;
     private string _originalCompletionInput;
     private bool _reactToInputTextChange = true;
-    private bool _commandResultDisplayHandled = false;
-    private bool _commandExecutionStopped = false;
-    
-    private string _commandInput = string.Empty;
-    private string _commandResult = string.Empty;
-    private string _workingDirectoryPath = string.Empty;
-    private Brush _resultForeground = Brushes.White;
-    private int _commandInputCaretIndex = 0;
-    private bool _isResultTextBoxReadOnly = true;
-    private bool _isInputTextBoxReadOnly = false;
+    private bool _commandResultDisplayHandled;
+    private bool _commandExecutionStopped;
     
     private readonly AutoResetEvent _resultTextBoxInputReady = new(false);
     private Task<PowerShellCommandResult>? _commandExecutionTask;
 
     /// <summary>
+    /// Gets the bindings instance that contains properties and commands for data binding in the main window ViewModel
+    /// </summary>
+    public MainWindowViewModelBindings Bindings { get; }
+    
+    /// <summary>
     /// Gets or sets the action that will be invoked to close the main application window
     /// </summary>
-    public Action CloseWindowAction { get; set; }
+    public Action CloseWindowAction { get; init; }
     /// <summary>
     /// Gets or sets the action that will be invoked to focus the input text box within the main application window
     /// </summary>
-    public Action FocusInputTextBoxAction { get; set; }
+    public Action FocusInputTextBoxAction { get; init; }
     /// <summary>
     /// Gets or sets the action that will be invoked to focus the result text box within the main application window
     /// </summary>
-    public Action FocusResultTextBoxAction { get; set; }
+    public Action FocusResultTextBoxAction { get; init; }
 
     /// <summary>
     /// Initializes a new instance of the <see cref="MainWindowViewModel"/> class
@@ -64,156 +63,23 @@ public class MainWindowViewModel : INotifyPropertyChanged
         _powerShellService = powerShellService;
         _commandHistory = commandHistory;
 
+        Bindings = new MainWindowViewModelBindings()
+        {
+            CommandInputEnterKeyCommand = new AsyncRelayCommand(ExecuteCommand),
+            CommandInputUpKeyCommand = new RelayCommand(SetCommandToHistoryNext),
+            CommandInputDownKeyCommand = new RelayCommand(SetCommandToHistoryPrev),
+            CommandInputEscapeKeyCommand = new RelayCommand(ResetCommandInput),
+            CommandInputTabKeyCommand = new RelayCommand(GetNextCompletion),
+            InputTextChangedCommand = new RelayCommand(OnInputTextChanged),
+            CommandResultEnterKeyCommand = new RelayCommand(ReadHostInputSubmitted),
+            CommandResultControlCCommand = new RelayCommand(StopReadHost)
+        };
+
         PowerShellCommandOverrides.ViewModelInstance = this;
         _powerShellService.RegisterCommandOverrides<PowerShellCommandOverrides>();
 
         // Set initial working directory path
-        WorkingDirectoryPath = _powerShellService.WorkingDirectoryPath;
-    }
-
-    /// <summary>
-    /// Gets the command that triggers when the Enter key is pressed on CommandInputTextBox
-    /// </summary>
-    public ICommand CommandInputEnterKeyCommand => new AsyncRelayCommand(ExecuteCommand);
-    /// <summary>
-    /// Gets the command that triggers when the Up key is pressed on CommandInputTextBox
-    /// </summary>
-    public ICommand CommandInputUpKeyCommand => new RelayCommand(SetCommandToHistoryNext);
-    /// <summary>
-    /// Gets the command that triggers when the Down key is pressed on CommandInputTextBox
-    /// </summary>
-    public ICommand CommandInputDownKeyCommand => new RelayCommand(SetCommandToHistoryPrev);
-    /// <summary>
-    /// Gets the command that triggers when the Escape key is pressed on CommandInputTextBox
-    /// </summary>
-    public ICommand CommandInputEscapeKeyCommand => new RelayCommand(ResetCommandInput);
-    /// <summary>
-    /// Gets the command that triggers when the Tab key is pressed on CommandInputTextBox
-    /// </summary>
-    public ICommand CommandInputTabKeyCommand => new RelayCommand(GetNextCompletion);
-    /// <summary>
-    /// Gets the command that triggers when input text is changed
-    /// </summary>
-    public ICommand InputTextChangedCommand => new RelayCommand(OnInputTextChanged);
-    /// <summary>
-    /// Gets the command that triggers when the Enter key is pressed on CommandResultTextBox
-    /// </summary>
-    public ICommand CommandResultEnterKeyCommand => new RelayCommand(ReadHostInputSubmitted);
-    /// <summary>
-    /// Gets the command that triggers when the Enter key is pressed on CommandResultTextBox
-    /// </summary>
-    public ICommand CommandResultControlCCommand => new RelayCommand(StopReadHost);
-
-    /// <summary>
-    /// Gets or sets the result text foreground color
-    /// </summary>
-    public Brush ResultForeground
-    {
-        get => _resultForeground;
-        set
-        {
-            if (value != _resultForeground)
-            {
-                _resultForeground = value;
-                OnPropertyChanged(nameof(ResultForeground));
-            }
-        }
-    }
-
-    /// <summary>
-    /// Gets or sets the command input text
-    /// </summary>
-    public string CommandInput
-    {
-        get => _commandInput;
-        set
-        {
-            if (value != _commandInput)
-            {
-                _commandInput = value;
-                OnPropertyChanged(nameof(CommandInput));
-            }
-        }
-    }
-    
-    /// <summary>
-    /// Gets or sets the command result text
-    /// </summary>
-    public string CommandResult
-    {
-        get => _commandResult;
-        set
-        {
-            if (value != _commandResult)
-            {
-                _commandResult = value;
-                OnPropertyChanged(nameof(CommandResult));
-            }
-        }
-    }
-    
-    /// <summary>
-    /// Gets or sets the working directory path
-    /// </summary>
-    public string WorkingDirectoryPath
-    {
-        get => _workingDirectoryPath;
-        set
-        {
-            if (value != _workingDirectoryPath)
-            {
-                _workingDirectoryPath = value;
-                OnPropertyChanged(nameof(WorkingDirectoryPath));
-            }
-        }
-    }
-    
-    /// <summary>
-    /// Gets or sets the command input text caret index
-    /// </summary>
-    public int CommandInputCaretIndex
-    {
-        get => _commandInputCaretIndex;
-        set
-        {
-            if (value != _commandInputCaretIndex)
-            {
-                _commandInputCaretIndex = value;
-                OnPropertyChanged(nameof(CommandInputCaretIndex));
-            }
-        }
-    }
-    
-    /// <summary>
-    /// Gets or sets the result text box IsReadOnly property
-    /// </summary>
-    public bool IsResultTextBoxReadOnly
-    {
-        get => _isResultTextBoxReadOnly;
-        set
-        {
-            if (value != _isResultTextBoxReadOnly)
-            {
-                _isResultTextBoxReadOnly = value;
-                OnPropertyChanged(nameof(IsResultTextBoxReadOnly));
-            }
-        }
-    }
-    
-    /// <summary>
-    /// Gets or sets the input text box IsReadOnly property
-    /// </summary>
-    public bool IsInputTextBoxReadOnly
-    {
-        get => _isInputTextBoxReadOnly;
-        set
-        {
-            if (value != _isInputTextBoxReadOnly)
-            {
-                _isInputTextBoxReadOnly = value;
-                OnPropertyChanged(nameof(IsInputTextBoxReadOnly));
-            }
-        }
+        Bindings.WorkingDirectoryPath = _powerShellService.WorkingDirectoryPath;
     }
     
     /// <summary>
@@ -221,17 +87,17 @@ public class MainWindowViewModel : INotifyPropertyChanged
     /// </summary>
     private async Task ExecuteCommand(object? parameter)
     {
-        _commandHistory.AddCommand(CommandInput);
+        _commandHistory.AddCommand(Bindings.CommandInput);
         
-        CommandResult = string.Empty;
-        ResultForeground = DefaultResultForeground;
+        Bindings.CommandResult = string.Empty;
+        Bindings.ResultForeground = ResultForegrounds.Default;
 
-        _commandExecutionTask = Task.Run(() => _powerShellService.ExecuteScript(CommandInput));
+        _commandExecutionTask = Task.Run(() => _powerShellService.ExecuteScript(Bindings.CommandInput));
         var executionResult = await _commandExecutionTask;
         _commandExecutionTask = null;
         
-        WorkingDirectoryPath = _powerShellService.WorkingDirectoryPath;
-        CommandInput = string.Empty;
+        Bindings.WorkingDirectoryPath = _powerShellService.WorkingDirectoryPath;
+        Bindings.CommandInput = string.Empty;
 
         if (_commandExecutionStopped)
         {
@@ -245,15 +111,15 @@ public class MainWindowViewModel : INotifyPropertyChanged
             return;
         }
         
-        CommandResult = executionResult.Output;
+        Bindings.CommandResult = executionResult.Output;
     
-        ResultForeground = executionResult.OutputSource switch
+        Bindings.ResultForeground = executionResult.OutputSource switch
         {
-            ResultOutputSource.ExecutionError => CommandErrorResultForeground,
-            ResultOutputSource.ParseError => ParseErrorResultForeground,
-            ResultOutputSource.Exception => ExceptionResultForeground,
-            ResultOutputSource.SuccessfulExecution => CommandSuccessResultForeground,
-            _ => DefaultResultForeground
+            ResultOutputSource.ExecutionError => ResultForegrounds.CommandError,
+            ResultOutputSource.ParseError => ResultForegrounds.ParseError,
+            ResultOutputSource.Exception => ResultForegrounds.Exception,
+            ResultOutputSource.SuccessfulExecution => ResultForegrounds.CommandSuccess,
+            _ => ResultForegrounds.Default
         };
     }
 
@@ -271,11 +137,11 @@ public class MainWindowViewModel : INotifyPropertyChanged
          * So we have to do one additional call to PrevCommand to get the right
          * command
          */
-        if (prevCommand is not null && prevCommand.Equals(CommandInput))
+        if (prevCommand is not null && prevCommand.Equals(Bindings.CommandInput))
             prevCommand = _commandHistory.PrevCommand();
         
-        CommandInput = prevCommand ?? string.Empty;
-        CommandInputCaretIndex = CommandInput.Length;
+        Bindings.CommandInput = prevCommand ?? string.Empty;
+        Bindings.CommandInputCaretIndex = Bindings.CommandInput.Length;
     }
     
     /// <summary>
@@ -288,8 +154,8 @@ public class MainWindowViewModel : INotifyPropertyChanged
         
         if (nextCommand is not null)
         {
-            CommandInput = nextCommand;
-            CommandInputCaretIndex = CommandInput.Length;
+            Bindings.CommandInput = nextCommand;
+            Bindings.CommandInputCaretIndex = Bindings.CommandInput.Length;
         }
     }
 
@@ -300,7 +166,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
     private void ResetCommandInput(object? parameter)
     {
         _commandHistory.MoveToStart();
-        CommandInput = string.Empty;
+        Bindings.CommandInput = string.Empty;
     }
     
     /// <summary>
@@ -311,8 +177,8 @@ public class MainWindowViewModel : INotifyPropertyChanged
         if (_currentCompletion is null) 
         {
             _currentCompletion = _powerShellService.GetCommandCompletions(
-                CommandInput, CommandInputCaretIndex);
-            _originalCompletionInput = CommandInput;
+                Bindings.CommandInput, Bindings.CommandInputCaretIndex);
+            _originalCompletionInput = Bindings.CommandInput;
         }
         
         if (_currentCompletion.CompletionMatches.Count == 0) return;
@@ -334,11 +200,11 @@ public class MainWindowViewModel : INotifyPropertyChanged
             !completionText.EndsWith(Path.DirectorySeparatorChar))
             completionText += Path.DirectorySeparatorChar;
         
-        CommandInput = _originalCompletionInput.ReplaceSegment(
+        Bindings.CommandInput = _originalCompletionInput.ReplaceSegment(
             _currentCompletion.ReplacementIndex, 
             _currentCompletion.ReplacementLength,
             completionText);
-        CommandInputCaretIndex = _currentCompletion.ReplacementIndex + completionText.Length;
+        Bindings.CommandInputCaretIndex = _currentCompletion.ReplacementIndex + completionText.Length;
 
         /*
          * If there is only one completion match, reset the completions.
@@ -390,7 +256,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
     /// <param name="text">The text to display in the command result output</param>
     public void WriteHost(string text)
     {
-        CommandResult = text;
+        Bindings.CommandResult = text;
         _commandResultDisplayHandled = true;
     }
 
@@ -401,18 +267,18 @@ public class MainWindowViewModel : INotifyPropertyChanged
     /// <remarks>This is a blocking method</remarks>
     public string ReadHost()
     {
-        CommandResult = string.Empty;
-        IsResultTextBoxReadOnly = false;
-        IsInputTextBoxReadOnly = true;
+        Bindings.CommandResult = string.Empty;
+        Bindings.IsResultTextBoxReadOnly = false;
+        Bindings.IsInputTextBoxReadOnly = true;
         FocusResultTextBoxAction();
         
         _resultTextBoxInputReady.WaitOne();
         
-        var res = CommandResult;
+        var res = Bindings.CommandResult;
         
-        CommandResult = string.Empty;
-        IsResultTextBoxReadOnly = true;
-        IsInputTextBoxReadOnly = false;
+        Bindings.CommandResult = string.Empty;
+        Bindings.IsResultTextBoxReadOnly = true;
+        Bindings.IsInputTextBoxReadOnly = false;
         FocusInputTextBoxAction();
         
         return res;
@@ -423,7 +289,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
     /// </summary>
     public void ClearHost()
     {
-        CommandResult = string.Empty;
+        Bindings.CommandResult = string.Empty;
         _commandResultDisplayHandled = true;
     }
 
@@ -431,20 +297,6 @@ public class MainWindowViewModel : INotifyPropertyChanged
     /// Handles the Exit-Host command by invoking the <see cref="CloseWindowAction"/>
     /// </summary>
     public void ExitHost() => CloseWindowAction();
-
-    /// <summary>
-    /// Event triggered when a property value changes
-    /// </summary>
-    public event PropertyChangedEventHandler? PropertyChanged;
-
-    /// <summary>
-    /// Raises the PropertyChanged event for a given property
-    /// </summary>
-    /// <param name="propertyName">The name of the property that was changed</param>
-    protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
-    {
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-    }
 
     /// <summary>
     /// Cleans up resources and ensures any ongoing command execution is completed

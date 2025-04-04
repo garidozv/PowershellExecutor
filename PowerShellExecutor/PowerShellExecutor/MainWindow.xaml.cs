@@ -1,5 +1,4 @@
-﻿using System.Windows.Media;
-using System.Windows;
+﻿using System.Windows;
 using PowerShellExecutor.PowerShellUtilities;
 using PowerShellExecutor.ViewModels;
 
@@ -18,13 +17,14 @@ public partial class MainWindow : Window
         InitializeComponent();
         
         _powerShellService = new PowerShellService();
-        _viewModel = new MainWindowViewModel(_powerShellService, new CommandHistory());
+        _viewModel = new MainWindowViewModel(_powerShellService, new CommandHistory())
+        {
+            CloseWindowAction = () => Dispatcher.Invoke(Close),
+            FocusInputTextBoxAction = () => Dispatcher.Invoke(() => CommandInputTextBox.Focus()),
+            FocusResultTextBoxAction = () => Dispatcher.Invoke(() => CommandResultTextBox.Focus())
+        };
         
-        _viewModel.CloseWindowAction = new Action(() => Dispatcher.Invoke(Close));
-        _viewModel.FocusInputTextBoxAction = new Action(() => Dispatcher.Invoke(() => CommandInputTextBox.Focus()));
-        _viewModel.FocusResultTextBoxAction = new Action(() => Dispatcher.Invoke(() => CommandResultTextBox.Focus()));
-        
-        DataContext = _viewModel;
+        DataContext = _viewModel.Bindings;
         CommandInputTextBox.Focus();
     }
 
