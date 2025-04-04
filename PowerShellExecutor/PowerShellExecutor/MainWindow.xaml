@@ -5,6 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
         xmlns:local="clr-namespace:PowerShellExecutor"
+        xmlns:behaviors="clr-namespace:PowerShellExecutor.Behaviors"
         xmlns:viewModel="clr-namespace:PowerShellExecutor.ViewModels"
         mc:Ignorable="d"
         d:DataContext="{d:DesignInstance viewModel:MainWindowViewModel, IsDesignTimeCreatable=True}"
@@ -37,9 +38,13 @@
                      Foreground="Yellow"
                      VerticalContentAlignment="Center"
                      Text="{Binding CommandInput, 
-                Mode=TwoWay, 
-                UpdateSourceTrigger=PropertyChanged}">
+                        Mode=TwoWay, 
+                        UpdateSourceTrigger=PropertyChanged}">
                 
+                <i:Interaction.Behaviors>
+                    <behaviors:BindableCaretIndexBehavior CaretIndex="{Binding CommandInputCaretIndex, Mode=TwoWay}" />
+                </i:Interaction.Behaviors>
+
                 <i:Interaction.Triggers>
                     <i:EventTrigger EventName="TextChanged">
                         <i:InvokeCommandAction Command="{Binding InputTextChangedCommand}"/>
@@ -67,7 +72,9 @@
         </Grid>
         
         <TextBox Grid.Row="1" Name="CommandResultTextBox"
-                 Foreground="White"
+                 Foreground="{Binding ResultForeground,
+                    Mode=OneWay,
+                    UpdateSourceTrigger=PropertyChanged}"
                  Background="DarkBlue"
                  IsReadOnly="True"
                  Text="{Binding CommandResult,

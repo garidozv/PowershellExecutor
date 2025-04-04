@@ -6,7 +6,6 @@ using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using PowershellExecutor.Helpers;
 using PowerShellExecutor.Helpers;
-using PowerShellExecutor.Interfaces;
 using PowerShellExecutor.PowerShellUtilities;
 
 namespace PowerShellExecutor.ViewModels;
@@ -18,25 +17,25 @@ public class MainWindowViewModel : INotifyPropertyChanged
 {
     private readonly PowerShellService _powerShellService;
     private readonly CommandHistory _commandHistory;
-    private readonly IMainWindow _mainWindow;
 
     private CommandCompletion? _currentCompletion;
     private string _originalCompletionInput;
-    private bool _isInternalInputTextChange = false;
+    private bool _reactToInputTextChange = true;
     
     private string _commandInput = string.Empty;
     private string _commandResult = string.Empty;
     private string _workingDirectoryPath = string.Empty;
+    private Brush _resultForeground = Brushes.White;
+    private int _commandInputCaretIndex = 0;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="MainWindowViewModel"/> class
     /// </summary>
     /// <param name="powerShellService">The service for working with PowerShell</param>
-    /// <param name="mainWindow">The main window interface for UI interaction</param>
-    public MainWindowViewModel(PowerShellService powerShellService, IMainWindow mainWindow, CommandHistory commandHistory)
+    /// <param name="commandHistory">The <see cref="CommandHistory"/> object used for PowerShell command history</param>
+    public MainWindowViewModel(PowerShellService powerShellService, CommandHistory commandHistory)
     {
         _powerShellService = powerShellService;
-        _mainWindow = mainWindow;
         _commandHistory = commandHistory;
 
         // Set initial working directory path
@@ -67,6 +66,22 @@ public class MainWindowViewModel : INotifyPropertyChanged
     /// Gets the command that triggers when input text is changed
     /// </summary>
     public ICommand InputTextChangedCommand => new RelayCommand(OnInputTextChanged);
+    
+    /// <summary>
+    /// Gets or sets the result text foreground color
+    /// </summary>
+    public Brush ResultForeground
+    {
+        get => _resultForeground;
+        set
+        {
+            if (value != _resultForeground)
+            {
+                _resultForeground = value;
+                OnPropertyChanged(nameof(ResultForeground));
+            }
+        }
+    }
 
     /// <summary>
     /// Gets or sets the command input text
@@ -115,7 +130,23 @@ public class MainWindowViewModel : INotifyPropertyChanged
             }
         }
     }
-
+    
+    /// <summary>
+    /// Gets or sets the input text caret index
+    /// </summary>
+    public int CommandInputCaretIndex
+    {
+        get => _commandInputCaretIndex;
+        set
+        {
+            if (value != _commandInputCaretIndex)
+            {
+                _commandInputCaretIndex = value;
+                OnPropertyChanged(nameof(CommandInputCaretIndex));
+            }
+        }
+    }
+    
     /// <summary>
     /// Executes the PowerShell command represented by the current input and updates the UI with the result
     /// </summary>
@@ -123,15 +154,14 @@ public class MainWindowViewModel : INotifyPropertyChanged
     {
         _commandHistory.AddCommand(CommandInput);
         
-        if (HandleSpecialCommands())
-            return;
+        var executionResult = _powerShellService.ExecuteScript(CommandInput);
         
-        var executionResult = _powerShellService.ExecuteCommand(CommandInput);
-        CommandResult = executionResult.Output;
         CommandInput = string.Empty;
         WorkingDirectoryPath = _powerShellService.WorkingDirectoryPath;
-
-        var commandResultForeground = executionResult.OutputSource switch
+        
+        CommandResult = executionResult.Output;
+        
+        ResultForeground = executionResult.OutputSource switch
         {
             ResultOutputSource.ExecutionError => Brushes.Red,
             ResultOutputSource.ParseError => Brushes.Red,
@@ -139,31 +169,6 @@ public class MainWindowViewModel : INotifyPropertyChanged
             ResultOutputSource.SuccessfulExecution => Brushes.White,
             _ => Brushes.White
         };
-        
-        _mainWindow.SetCommandResultForeground(commandResultForeground);
-    }
-    
-    /// <summary>
-    /// Handles special commands that require custom behavior instead of standard execution.
-    /// </summary>
-    /// <returns>
-    /// Returns <c>true</c> if the command was handled as a special case, preventing further execution; 
-    /// otherwise, returns <c>false</c>.
-    /// </returns>
-    private bool HandleSpecialCommands()
-    {
-        switch (CommandInput.ToLower())
-        {
-            case "clear":
-                CommandInput = string.Empty;
-                CommandResult = string.Empty;
-                return true;
-            case "exit":
-                _mainWindow.CloseMainWindow();
-                return true;
-        }
-
-        return false;
     }
 
     /// <summary>
@@ -184,7 +189,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
             prevCommand = _commandHistory.PrevCommand();
         
         CommandInput = prevCommand ?? string.Empty;
-        _mainWindow.SetCommandInputCaretIndex();
+        CommandInputCaretIndex = CommandInput.Length;
     }
     
     /// <summary>
@@ -198,7 +203,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
         if (nextCommand is not null)
         {
             CommandInput = nextCommand;
-            _mainWindow.SetCommandInputCaretIndex();
+            CommandInputCaretIndex = CommandInput.Length;
         }
     }
 
@@ -220,13 +225,13 @@ public class MainWindowViewModel : INotifyPropertyChanged
         if (_currentCompletion is null) 
         {
             _currentCompletion = _powerShellService.GetCommandCompletions(
-                CommandInput, _mainWindow.GetCommandInputCaretIndex());
+                CommandInput, CommandInputCaretIndex);
             _originalCompletionInput = CommandInput;
         }
         
         if (_currentCompletion.CompletionMatches.Count == 0) return;
             
-        _isInternalInputTextChange = true;
+        _reactToInputTextChange = false;
         
         var nextCompletion = _currentCompletion.GetNextResult(true);
         var completionText = nextCompletion.CompletionText;
@@ -247,7 +252,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
             _currentCompletion.ReplacementIndex, 
             _currentCompletion.ReplacementLength,
             completionText);
-        _mainWindow.SetCommandInputCaretIndex(_currentCompletion.ReplacementIndex + completionText.Length);
+        CommandInputCaretIndex = _currentCompletion.ReplacementIndex + completionText.Length;
 
         /*
          * If there is only one completion match, reset the completions.
@@ -269,9 +274,9 @@ public class MainWindowViewModel : INotifyPropertyChanged
     /// </summary>
     private void OnInputTextChanged(object parameter)
     {
-        if (_isInternalInputTextChange)
+        if (!_reactToInputTextChange)
         {
-            _isInternalInputTextChange = false;
+            _reactToInputTextChange = true;
             return;
         }
 
