@@ -8,7 +8,6 @@ namespace PowerShellExecutor.ViewModels;
 public class MainWindowViewModelBindings  : INotifyPropertyChanged
 {
     private string _commandInput = string.Empty;
-    private string _commandResult = string.Empty;
     private string _workingDirectoryPath = string.Empty;
     private Brush _resultForeground = Brushes.White;
     private int _commandInputCaretIndex = 0;
@@ -83,22 +82,6 @@ public class MainWindowViewModelBindings  : INotifyPropertyChanged
             {
                 _commandInput = value;
                 OnPropertyChanged(nameof(CommandInput));
-            }
-        }
-    }
-
-    /// <summary>
-    /// Gets or sets the command result text
-    /// </summary>
-    public string CommandResult
-    {
-        get => _commandResult;
-        set
-        {
-            if (value != _commandResult)
-            {
-                _commandResult = value;
-                OnPropertyChanged(nameof(CommandResult));
             }
         }
     }

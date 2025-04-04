@@ -21,7 +21,8 @@ public partial class MainWindow : Window
         {
             CloseWindowAction = () => Dispatcher.Invoke(Close),
             FocusInputTextBoxAction = () => Dispatcher.Invoke(() => CommandInputTextBox.Focus()),
-            FocusResultTextBoxAction = () => Dispatcher.Invoke(() => CommandResultTextBox.Focus())
+            FocusResultTextBoxAction = () => Dispatcher.Invoke(() => CommandResultRichTextBox.Focus()),
+            CommandResultRichTextBox = CommandResultRichTextBox
         };
         
         DataContext = _viewModel.Bindings;

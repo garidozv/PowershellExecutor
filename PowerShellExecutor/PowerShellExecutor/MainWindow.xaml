@@ -18,10 +18,20 @@
             <Setter Property="FontFamily" Value="Consolas"></Setter>
             <Setter Property="FontSize" Value="11"></Setter>
             <Setter Property="FontWeight" Value="Thin"></Setter>
-            <Setter Property="Padding" Value="5"></Setter>
+            <Setter Property="Padding" Value="4"></Setter>
             <Setter Property="BorderThickness" Value="0"></Setter>
             <Setter Property="SelectionBrush" Value="#f3d9a1"></Setter>
             <Setter Property="TextWrapping" Value="Wrap"></Setter>
+        </Style>
+        <Style x:Key="RichTextBoxPowerShellStyle" TargetType="RichTextBox">
+            <Setter Property="Background" Value="#002456"></Setter>
+            <Setter Property="Foreground" Value="White"></Setter>
+            <Setter Property="FontFamily" Value="Consolas"></Setter>
+            <Setter Property="FontSize" Value="11"></Setter>
+            <Setter Property="FontWeight" Value="Thin"></Setter>
+            <Setter Property="Padding" Value="1"></Setter>
+            <Setter Property="BorderThickness" Value="0"></Setter>
+            <Setter Property="SelectionBrush" Value="#f3d9a1"></Setter>
         </Style>
     </Window.Resources>
     
@@ -49,6 +59,7 @@
             <TextBox Grid.Column="1" Name="CommandInputTextBox"
                      Style="{StaticResource TextBoxPowerShellStyle}"
                      Foreground="Yellow"
+                     Padding="0, 4, 4, 4"
                      VerticalContentAlignment="Center"
                      AcceptsReturn="True"
                      AcceptsTab="True"
@@ -71,7 +82,7 @@
                 
                 <TextBox.InputBindings>
                     <KeyBinding 
-                        Key="Enter" 
+                        Key="Enter"
                         Command="{Binding CommandInputEnterKeyCommand}"/>
                     <KeyBinding 
                         Key="Up" 
@@ -89,26 +100,21 @@
             </TextBox>
         </Grid>
         
-        <TextBox Grid.Row="1" Name="CommandResultTextBox"
-                 Style="{StaticResource TextBoxPowerShellStyle}"
-                 Foreground="{Binding ResultForeground,
-                    Mode=OneWay,
-                    UpdateSourceTrigger=PropertyChanged}"
+        <RichTextBox Grid.Row="1" Name="CommandResultRichTextBox"
+                 Style="{StaticResource RichTextBoxPowerShellStyle}"
                  IsReadOnly="{Binding IsResultTextBoxReadOnly,
                     Mode=OneWay,
                     UpdateSourceTrigger=PropertyChanged}"
-                 Text="{Binding CommandResult,
-                    Mode=TwoWay,
-                    UpdateSourceTrigger=PropertyChanged}">
+                 VerticalScrollBarVisibility="Auto">
             
-            <TextBox.InputBindings>
+            <RichTextBox.InputBindings>
                 <KeyBinding 
                     Key="Enter" 
                     Command="{Binding CommandResultEnterKeyCommand}"/>
                 <KeyBinding 
                     Key="C" Modifiers="Control"
                     Command="{Binding CommandResultControlCCommand}"/>
-            </TextBox.InputBindings>
-        </TextBox>
+            </RichTextBox.InputBindings>
+        </RichTextBox>
     </Grid>
 </Window>

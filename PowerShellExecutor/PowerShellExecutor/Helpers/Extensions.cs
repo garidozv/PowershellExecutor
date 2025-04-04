@@ -4,13 +4,22 @@ namespace PowerShellExecutor.Helpers;
 
 public static class Extensions
 {
-    public static string ToItemListString(this IEnumerable<Object> enumerable)
+    /// <summary>
+    /// Converts an enumerable collection of objects into a single string, with each object's
+    /// string representation on a new line, optionally prefixed with a specified line prefix
+    /// </summary>
+    /// <param name="enumerable">The collection of objects to convert to a string</param>
+    /// <param name="linePrefix">An optional string to prepend to each line. Default is <c>null</c></param>
+    /// <returns>A formatted string with one item per line, optionally prefixed by <paramref name="linePrefix"/></returns>
+    public static string ToItemListString(this IEnumerable<object> enumerable, string? linePrefix = null)
     {
         var strBuilder = new StringBuilder();
         foreach (var item in enumerable)
         {
-            strBuilder.AppendLine(item.ToString());
+            strBuilder.Append(linePrefix).AppendLine(item.ToString());
         }
+        if (strBuilder.Length > 0) strBuilder.Remove(strBuilder.Length - Environment.NewLine.Length, Environment.NewLine.Length);
+        
         return strBuilder.ToString();
     }
 

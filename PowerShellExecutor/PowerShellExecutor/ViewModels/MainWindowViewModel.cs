@@ -1,8 +1,9 @@
-using System.ComponentModel;
 using System.IO;
 using System.Management.Automation;
 using System.Windows.Media;
-using System.Runtime.CompilerServices;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Documents;
 using PowershellExecutor.Helpers;
 using PowerShellExecutor.Helpers;
 using PowerShellExecutor.PowerShellUtilities;
@@ -14,13 +15,15 @@ namespace PowerShellExecutor.ViewModels;
 /// </summary>
 public class MainWindowViewModel
 {
-    private static class ResultForegrounds
+    private record TextBoxBrushes(Brush Foreground, Brush Background);
+    private static class CommandOutputBrushes
     {
-        public static readonly Brush Default = Brushes.White;
-        public static readonly Brush CommandSuccess = Brushes.White;
-        public static readonly Brush CommandError = Brushes.Red;
-        public static readonly Brush ParseError = Brushes.Red;
-        public static readonly Brush Exception = Brushes.DarkRed;
+        public static readonly TextBoxBrushes Default = new(Brushes.White, Brushes.Transparent);
+        public static readonly TextBoxBrushes Error = new(Brushes.Red, Brushes.Black);
+        public static readonly TextBoxBrushes Verbose = new(Brushes.Yellow, Brushes.Black);
+        public static readonly TextBoxBrushes Debug = new(Brushes.Yellow, Brushes.Black);
+        public static readonly TextBoxBrushes Warning = new(Brushes.Yellow, Brushes.Black);
+        public static readonly TextBoxBrushes Information = new(Brushes.White, Brushes.Transparent);
     }
     
     private readonly PowerShellService _powerShellService;
@@ -33,8 +36,13 @@ public class MainWindowViewModel
     private bool _commandExecutionStopped;
     
     private readonly AutoResetEvent _resultTextBoxInputReady = new(false);
-    private Task<PowerShellCommandResult>? _commandExecutionTask;
+    private Task<PowerShellExecutionResult>? _commandExecutionTask;
 
+    /// <summary>
+    /// Gets the RichTextBox control used for displaying and interacting with the command execution results
+    /// </summary>
+    public RichTextBox CommandResultRichTextBox { get; init; }
+    
     /// <summary>
     /// Gets the bindings instance that contains properties and commands for data binding in the main window ViewModel
     /// </summary>
@@ -83,14 +91,73 @@ public class MainWindowViewModel
     }
     
     /// <summary>
+    /// Handles the Write-Host command by updating the command result text boc with the provided text
+    /// </summary>
+    /// <param name="text">The text to display in the command result output</param>
+    public void WriteHost(string text)
+    {
+        CommandResultAddLine(text, CommandOutputBrushes.Default);
+        _commandResultDisplayHandled = true;
+    }
+
+    /// <summary>
+    /// Handles the Read-Host command by waiting for user input in the command result text box
+    /// </summary>
+    /// <returns>The string entered by the user into the result text box</returns>
+    /// <remarks>This is a blocking method</remarks>
+    public string ReadHost()
+    {
+        CommandResultClear();
+        Bindings.IsResultTextBoxReadOnly = false;
+        Bindings.IsInputTextBoxReadOnly = true;
+        FocusResultTextBoxAction();
+        
+        _resultTextBoxInputReady.WaitOne();
+        
+        var res = new TextRange(CommandResultRichTextBox.Document.ContentStart, CommandResultRichTextBox.Document.ContentEnd).Text.Trim();
+        
+        CommandResultClear();
+        Bindings.IsResultTextBoxReadOnly = true;
+        Bindings.IsInputTextBoxReadOnly = false;
+        FocusInputTextBoxAction();
+        
+        return res;
+    }
+
+    /// <summary>
+    /// Handles the Clear-Host command by clearing the command result text box
+    /// </summary>
+    public void ClearHost()
+    {
+        CommandResultClear();
+        _commandResultDisplayHandled = true;
+    }
+
+    /// <summary>
+    /// Handles the Exit-Host command by invoking the <see cref="CloseWindowAction"/>
+    /// </summary>
+    public void ExitHost() => CloseWindowAction();
+
+    /// <summary>
+    /// Cleans up resources and ensures any ongoing command execution is completed
+    /// </summary>
+    public async Task Cleanup()
+    {
+        if (_commandExecutionTask is not null)
+        {
+            _resultTextBoxInputReady.Set();
+            await _commandExecutionTask.ConfigureAwait(false);
+        }
+    }
+    
+    /// <summary>
     /// Executes the PowerShell command represented by the current input and updates the UI with the result
     /// </summary>
     private async Task ExecuteCommand(object? parameter)
     {
         _commandHistory.AddCommand(Bindings.CommandInput);
-        
-        Bindings.CommandResult = string.Empty;
-        Bindings.ResultForeground = ResultForegrounds.Default;
+
+        CommandResultClear();
 
         _commandExecutionTask = Task.Run(() => _powerShellService.ExecuteScript(Bindings.CommandInput));
         var executionResult = await _commandExecutionTask;
@@ -110,17 +177,8 @@ public class MainWindowViewModel
             _commandResultDisplayHandled = false;
             return;
         }
-        
-        Bindings.CommandResult = executionResult.Output;
-    
-        Bindings.ResultForeground = executionResult.OutputSource switch
-        {
-            ResultOutputSource.ExecutionError => ResultForegrounds.CommandError,
-            ResultOutputSource.ParseError => ResultForegrounds.ParseError,
-            ResultOutputSource.Exception => ResultForegrounds.Exception,
-            ResultOutputSource.SuccessfulExecution => ResultForegrounds.CommandSuccess,
-            _ => ResultForegrounds.Default
-        };
+
+        GenerateResultOutput(executionResult);
     }
 
     /// <summary>
@@ -249,64 +307,70 @@ public class MainWindowViewModel
         _commandExecutionStopped = true;
         _resultTextBoxInputReady.Set();
     }
-
+    
     /// <summary>
-    /// Handles the Write-Host command by updating the command result text boc with the provided text
+    /// Generates and formats the output result based on the specified execution result data
     /// </summary>
-    /// <param name="text">The text to display in the command result output</param>
-    public void WriteHost(string text)
+    /// <param name="executionResult">The result of the PowerShell script execution</param>
+    private void GenerateResultOutput(PowerShellExecutionResult executionResult)
     {
-        Bindings.CommandResult = text;
-        _commandResultDisplayHandled = true;
-    }
-
-    /// <summary>
-    /// Handles the Read-Host command by waiting for user input in the command result text box
-    /// </summary>
-    /// <returns>The string entered by the user into the result text box</returns>
-    /// <remarks>This is a blocking method</remarks>
-    public string ReadHost()
-    {
-        Bindings.CommandResult = string.Empty;
-        Bindings.IsResultTextBoxReadOnly = false;
-        Bindings.IsInputTextBoxReadOnly = true;
-        FocusResultTextBoxAction();
-        
-        _resultTextBoxInputReady.WaitOne();
-        
-        var res = Bindings.CommandResult;
-        
-        Bindings.CommandResult = string.Empty;
-        Bindings.IsResultTextBoxReadOnly = true;
-        Bindings.IsInputTextBoxReadOnly = false;
-        FocusInputTextBoxAction();
-        
-        return res;
-    }
-
-    /// <summary>
-    /// Handles the Clear-Host command by clearing the command result text box
-    /// </summary>
-    public void ClearHost()
-    {
-        Bindings.CommandResult = string.Empty;
-        _commandResultDisplayHandled = true;
-    }
-
-    /// <summary>
-    /// Handles the Exit-Host command by invoking the <see cref="CloseWindowAction"/>
-    /// </summary>
-    public void ExitHost() => CloseWindowAction();
-
-    /// <summary>
-    /// Cleans up resources and ensures any ongoing command execution is completed
-    /// </summary>
-    public async Task Cleanup()
-    {
-        if (_commandExecutionTask is not null)
+        Application.Current.Dispatcher.Invoke(() =>
         {
-            _resultTextBoxInputReady.Set();
-            await _commandExecutionTask.ConfigureAwait(false);
-        }
+            if (CommandResultRichTextBox.Document is null) return;
+
+            CommandResultRichTextBox.Document.Blocks.Clear();
+            
+            if (executionResult.CommandResults is not null)
+                CommandResultAddLine(executionResult.CommandResults.ToItemListString(), CommandOutputBrushes.Default);
+            if (executionResult.ParseErrors is not null)
+                CommandResultAddLine(executionResult.ParseErrors.ToItemListString(), CommandOutputBrushes.Error);
+            if (executionResult.Errors is not null)
+                CommandResultAddLine(executionResult.Errors.ToItemListString(), CommandOutputBrushes.Error);
+            if (executionResult.Warnings is not null)
+                CommandResultAddLine(executionResult.Warnings.ToItemListString("WARNING: "), CommandOutputBrushes.Warning);
+            if (executionResult.VerboseMessages is not null)
+                CommandResultAddLine(executionResult.VerboseMessages.ToItemListString("VERBOSE: "), CommandOutputBrushes.Verbose);
+            if (executionResult.DebugMessages is not null)
+                CommandResultAddLine(executionResult.DebugMessages.ToItemListString("DEBUG: "), CommandOutputBrushes.Debug);
+            if (executionResult.InformationMessages is not null)
+                CommandResultAddLine(executionResult.InformationMessages.ToItemListString(), CommandOutputBrushes.Information);
+        });
+    }
+
+    /// <summary>
+    /// Adds a line of text with specified formatting to the <see cref="CommandResultRichTextBox"/>
+    /// </summary>
+    /// <param name="text">The text to add to the result display</param>
+    /// <param name="textBoxBrushes">The brushes used to format the foreground and background of the text</param>
+    private void CommandResultAddLine(string text, TextBoxBrushes textBoxBrushes)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        ArgumentNullException.ThrowIfNull(textBoxBrushes);
+        
+        Application.Current.Dispatcher.Invoke(() =>
+        {
+            var paragraph = new Paragraph(new Run(text)
+            {
+                Background = textBoxBrushes.Background,
+                Foreground = textBoxBrushes.Foreground
+            })
+            {
+                Margin = new Thickness(0)
+            };
+
+            CommandResultRichTextBox.Document.Blocks.Add(paragraph);
+        });
+    }
+
+    /// <summary>
+    /// Clears the content of the command result text box by clearing all blocks
+    /// in its document.
+    /// </summary>
+    private void CommandResultClear()
+    {
+        Application.Current.Dispatcher.Invoke(() =>
+        {
+            CommandResultRichTextBox.Document?.Blocks.Clear();
+        });
     }
 }
