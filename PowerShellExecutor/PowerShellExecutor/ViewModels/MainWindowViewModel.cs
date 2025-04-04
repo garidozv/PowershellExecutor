@@ -39,6 +39,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
     private bool _isInputTextBoxReadOnly = false;
     
     private readonly AutoResetEvent _resultTextBoxInputReady = new(false);
+    private Task<PowerShellCommandResult>? _commandExecutionTask;
 
     /// <summary>
     /// Gets or sets the action that will be invoked to close the main application window
@@ -224,8 +225,10 @@ public class MainWindowViewModel : INotifyPropertyChanged
         
         CommandResult = string.Empty;
         ResultForeground = DefaultResultForeground;
-        
-        var executionResult = await Task.Run(() => _powerShellService.ExecuteScript(CommandInput));
+
+        _commandExecutionTask = Task.Run(() => _powerShellService.ExecuteScript(CommandInput));
+        var executionResult = await _commandExecutionTask;
+        _commandExecutionTask = null;
         
         WorkingDirectoryPath = _powerShellService.WorkingDirectoryPath;
         CommandInput = string.Empty;
@@ -441,5 +444,17 @@ public class MainWindowViewModel : INotifyPropertyChanged
     protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    }
+
+    /// <summary>
+    /// Cleans up resources and ensures any ongoing command execution is completed
+    /// </summary>
+    public async Task Cleanup()
+    {
+        if (_commandExecutionTask is not null)
+        {
+            _resultTextBoxInputReady.Set();
+            await _commandExecutionTask.ConfigureAwait(false);
+        }
     }
 }

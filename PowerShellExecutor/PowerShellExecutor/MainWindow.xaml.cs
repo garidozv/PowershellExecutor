@@ -11,25 +11,26 @@ namespace PowerShellExecutor;
 public partial class MainWindow : Window
 {
     private readonly PowerShellService _powerShellService;
+    private readonly MainWindowViewModel _viewModel;
     
     public MainWindow()
     {
         InitializeComponent();
         
         _powerShellService = new PowerShellService();
-        var viewModel = new MainWindowViewModel(_powerShellService, new CommandHistory());
+        _viewModel = new MainWindowViewModel(_powerShellService, new CommandHistory());
         
-        viewModel.CloseWindowAction = new Action(() => Dispatcher.Invoke(Close));
-        viewModel.FocusInputTextBoxAction = new Action(() => Dispatcher.Invoke(() => CommandInputTextBox.Focus()));
-        viewModel.FocusResultTextBoxAction = new Action(() => Dispatcher.Invoke(() => CommandResultTextBox.Focus()));
+        _viewModel.CloseWindowAction = new Action(() => Dispatcher.Invoke(Close));
+        _viewModel.FocusInputTextBoxAction = new Action(() => Dispatcher.Invoke(() => CommandInputTextBox.Focus()));
+        _viewModel.FocusResultTextBoxAction = new Action(() => Dispatcher.Invoke(() => CommandResultTextBox.Focus()));
         
-        
-        DataContext = viewModel;
+        DataContext = _viewModel;
         CommandInputTextBox.Focus();
     }
 
-    protected override void OnClosed(EventArgs e)
+    protected override async void OnClosed(EventArgs e)
     {
+        await _viewModel.Cleanup();
         _powerShellService.Dispose();
         base.OnClosed(e);
     }
