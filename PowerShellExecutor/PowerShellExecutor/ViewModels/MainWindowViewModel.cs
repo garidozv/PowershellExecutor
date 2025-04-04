@@ -28,6 +28,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
     private string _originalCompletionInput;
     private bool _reactToInputTextChange = true;
     private bool _commandResultDisplayHandled = false;
+    private bool _commandExecutionStopped = false;
     
     private string _commandInput = string.Empty;
     private string _commandResult = string.Empty;
@@ -97,7 +98,11 @@ public class MainWindowViewModel : INotifyPropertyChanged
     /// Gets the command that triggers when the Enter key is pressed on CommandResultTextBox
     /// </summary>
     public ICommand CommandResultEnterKeyCommand => new RelayCommand(ReadHostInputSubmitted);
-    
+    /// <summary>
+    /// Gets the command that triggers when the Enter key is pressed on CommandResultTextBox
+    /// </summary>
+    public ICommand CommandResultControlCCommand => new RelayCommand(StopReadHost);
+
     /// <summary>
     /// Gets or sets the result text foreground color
     /// </summary>
@@ -224,6 +229,12 @@ public class MainWindowViewModel : INotifyPropertyChanged
         
         WorkingDirectoryPath = _powerShellService.WorkingDirectoryPath;
         CommandInput = string.Empty;
+
+        if (_commandExecutionStopped)
+        {
+            _commandExecutionStopped = false;
+            return;
+        }
 
         if (_commandResultDisplayHandled)
         {
@@ -360,6 +371,15 @@ public class MainWindowViewModel : INotifyPropertyChanged
     /// Handles input submission for Read-Host command
     /// </summary>
     private void ReadHostInputSubmitted(object obj) => _resultTextBoxInputReady.Set();
+
+    /// <summary>
+    /// Stops the execution of the Read-Host command
+    /// </summary>
+    private void StopReadHost(object obj)
+    {
+        _commandExecutionStopped = true;
+        _resultTextBoxInputReady.Set();
+    }
 
     /// <summary>
     /// Handles the Write-Host command by updating the command result text boc with the provided text

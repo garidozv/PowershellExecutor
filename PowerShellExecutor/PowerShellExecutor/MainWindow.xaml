@@ -105,6 +105,9 @@
                 <KeyBinding 
                     Key="Enter" 
                     Command="{Binding CommandResultEnterKeyCommand}"/>
+                <KeyBinding 
+                    Key="C" Modifiers="Control"
+                    Command="{Binding CommandResultControlCCommand}"/>
             </TextBox.InputBindings>
         </TextBox>
     </Grid>
