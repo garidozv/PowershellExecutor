@@ -9,8 +9,22 @@
         xmlns:viewModel="clr-namespace:PowerShellExecutor.ViewModels"
         mc:Ignorable="d"
         d:DataContext="{d:DesignInstance viewModel:MainWindowViewModel, IsDesignTimeCreatable=True}"
-        Title="PowerShellExecutor" Height="450" Width="800">
+        Title="PowerShell" Height="450" Width="800">
 
+    <Window.Resources>
+        <Style x:Key="TextBoxPowerShellStyle" TargetType="TextBox">
+            <Setter Property="Background" Value="#002456"></Setter>
+            <Setter Property="Foreground" Value="White"></Setter>
+            <Setter Property="FontFamily" Value="Consolas"></Setter>
+            <Setter Property="FontSize" Value="11"></Setter>
+            <Setter Property="FontWeight" Value="Thin"></Setter>
+            <Setter Property="Padding" Value="5"></Setter>
+            <Setter Property="BorderThickness" Value="0"></Setter>
+            <Setter Property="SelectionBrush" Value="#f3d9a1"></Setter>
+            <Setter Property="TextWrapping" Value="Wrap"></Setter>
+        </Style>
+    </Window.Resources>
+    
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -24,8 +38,7 @@
             </Grid.ColumnDefinitions>
             
             <TextBox Grid.Column="0" Name="WorkingDirectoryPathTextBox"
-                     Foreground="White"
-                     Background="DarkBlue"
+                     Style="{StaticResource TextBoxPowerShellStyle}"
                      IsReadOnly="True"
                      VerticalContentAlignment="Center"
                      Text="{Binding WorkingDirectoryPath, 
@@ -34,9 +47,14 @@
                         StringFormat='PS {0}>'}"/>
 
             <TextBox Grid.Column="1" Name="CommandInputTextBox"
-                     Background="DarkBlue"
+                     Style="{StaticResource TextBoxPowerShellStyle}"
                      Foreground="Yellow"
                      VerticalContentAlignment="Center"
+                     AcceptsReturn="True"
+                     AcceptsTab="True"
+                     IsReadOnly="{Binding IsInputTextBoxReadOnly,
+                        Mode=OneWay,
+                        UpdateSourceTrigger=PropertyChanged}"
                      Text="{Binding CommandInput, 
                         Mode=TwoWay, 
                         UpdateSourceTrigger=PropertyChanged}">
@@ -72,10 +90,10 @@
         </Grid>
         
         <TextBox Grid.Row="1" Name="CommandResultTextBox"
+                 Style="{StaticResource TextBoxPowerShellStyle}"
                  Foreground="{Binding ResultForeground,
                     Mode=OneWay,
                     UpdateSourceTrigger=PropertyChanged}"
-                 Background="DarkBlue"
                  IsReadOnly="{Binding IsResultTextBoxReadOnly,
                     Mode=OneWay,
                     UpdateSourceTrigger=PropertyChanged}"

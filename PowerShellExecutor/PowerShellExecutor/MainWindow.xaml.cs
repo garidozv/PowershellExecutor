@@ -15,12 +15,17 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-
+        
         _powerShellService = new PowerShellService();
         var viewModel = new MainWindowViewModel(_powerShellService, new CommandHistory());
-        viewModel.CloseWindowAction = Close;
+        
+        viewModel.CloseWindowAction = new Action(() => Dispatcher.Invoke(Close));
+        viewModel.FocusInputTextBoxAction = new Action(() => Dispatcher.Invoke(() => CommandInputTextBox.Focus()));
+        viewModel.FocusResultTextBoxAction = new Action(() => Dispatcher.Invoke(() => CommandResultTextBox.Focus()));
+        
         
         DataContext = viewModel;
+        CommandInputTextBox.Focus();
     }
 
     protected override void OnClosed(EventArgs e)

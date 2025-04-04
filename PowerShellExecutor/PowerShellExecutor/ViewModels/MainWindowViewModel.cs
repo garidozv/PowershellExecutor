@@ -3,9 +3,7 @@ using System.IO;
 using System.Management.Automation;
 using System.Windows.Media;
 using System.Runtime.CompilerServices;
-using System.Windows;
 using System.Windows.Input;
-using System.Windows.Threading;
 using PowershellExecutor.Helpers;
 using PowerShellExecutor.Helpers;
 using PowerShellExecutor.PowerShellUtilities;
@@ -37,14 +35,22 @@ public class MainWindowViewModel : INotifyPropertyChanged
     private Brush _resultForeground = Brushes.White;
     private int _commandInputCaretIndex = 0;
     private bool _isResultTextBoxReadOnly = true;
+    private bool _isInputTextBoxReadOnly = false;
     
     private readonly AutoResetEvent _resultTextBoxInputReady = new(false);
-    private readonly Dispatcher _dispatcher = Application.Current.Dispatcher;
 
     /// <summary>
     /// Gets or sets the action that will be invoked to close the main application window
     /// </summary>
     public Action CloseWindowAction { get; set; }
+    /// <summary>
+    /// Gets or sets the action that will be invoked to focus the input text box within the main application window
+    /// </summary>
+    public Action FocusInputTextBoxAction { get; set; }
+    /// <summary>
+    /// Gets or sets the action that will be invoked to focus the result text box within the main application window
+    /// </summary>
+    public Action FocusResultTextBoxAction { get; set; }
 
     /// <summary>
     /// Initializes a new instance of the <see cref="MainWindowViewModel"/> class
@@ -184,6 +190,22 @@ public class MainWindowViewModel : INotifyPropertyChanged
             {
                 _isResultTextBoxReadOnly = value;
                 OnPropertyChanged(nameof(IsResultTextBoxReadOnly));
+            }
+        }
+    }
+    
+    /// <summary>
+    /// Gets or sets the input text box IsReadOnly property
+    /// </summary>
+    public bool IsInputTextBoxReadOnly
+    {
+        get => _isInputTextBoxReadOnly;
+        set
+        {
+            if (value != _isInputTextBoxReadOnly)
+            {
+                _isInputTextBoxReadOnly = value;
+                OnPropertyChanged(nameof(IsInputTextBoxReadOnly));
             }
         }
     }
@@ -356,15 +378,19 @@ public class MainWindowViewModel : INotifyPropertyChanged
     /// <remarks>This is a blocking method</remarks>
     public string ReadHost()
     {
-        IsResultTextBoxReadOnly = false;
         CommandResult = string.Empty;
+        IsResultTextBoxReadOnly = false;
+        IsInputTextBoxReadOnly = true;
+        FocusResultTextBoxAction();
         
         _resultTextBoxInputReady.WaitOne();
         
         var res = CommandResult;
         
-        IsResultTextBoxReadOnly = true;
         CommandResult = string.Empty;
+        IsResultTextBoxReadOnly = true;
+        IsInputTextBoxReadOnly = false;
+        FocusInputTextBoxAction();
         
         return res;
     }
@@ -381,7 +407,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
     /// <summary>
     /// Handles the Exit-Host command by invoking the <see cref="CloseWindowAction"/>
     /// </summary>
-    public void ExitHost() => _dispatcher.Invoke(CloseWindowAction);
+    public void ExitHost() => CloseWindowAction();
 
     /// <summary>
     /// Event triggered when a property value changes
