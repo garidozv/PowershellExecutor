@@ -45,7 +45,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
     /// <summary>
     /// Gets the command that triggers when the Enter key is pressed
     /// </summary>
-    public ICommand EnterKeyCommand => new RelayCommand(ExecuteCommand);
+    public ICommand EnterKeyCommand => new AsyncRelayCommand(ExecuteCommand);
     /// <summary>
     /// Gets the command that triggers when the Up key is pressed
     /// </summary>
@@ -150,11 +150,11 @@ public class MainWindowViewModel : INotifyPropertyChanged
     /// <summary>
     /// Executes the PowerShell command represented by the current input and updates the UI with the result
     /// </summary>
-    private void ExecuteCommand(object? parameter)
+    private async Task ExecuteCommand(object? parameter)
     {
         _commandHistory.AddCommand(CommandInput);
         
-        var executionResult = _powerShellService.ExecuteScript(CommandInput);
+        var executionResult = await Task.Run(() => _powerShellService.ExecuteScript(CommandInput));
         
         CommandInput = string.Empty;
         WorkingDirectoryPath = _powerShellService.WorkingDirectoryPath;
