@@ -7,13 +7,13 @@ public static class Extensions
     /// <summary>
     /// Converts the string representation of an object to a single line, optionally prefixed, without a trailing newline.
     /// </summary>
-    /// <param name="obj">The object to convert to a single-line string.</param>
-    /// <param name="linePrefix">An optional prefix to prepend to the string. Default is <c>null</c>.</param>
-    /// <returns>A single-line string representation of the object without a trailing newline.</returns>
+    /// <param name="obj">The object to convert to a single-line string</param>
+    /// <param name="linePrefix">An optional prefix to prepend to the string. Default is <c>null</c></param>
+    /// <returns>A single-line string representation of the object without a trailing newline</returns>
     public static string ToSingleLineString(this object obj, string? linePrefix = null)
     {
         var strBuilder = new StringBuilder();
-        strBuilder.Append(obj);
+        strBuilder.Append(linePrefix).Append(obj);
         
         var str = strBuilder.ToString();
         

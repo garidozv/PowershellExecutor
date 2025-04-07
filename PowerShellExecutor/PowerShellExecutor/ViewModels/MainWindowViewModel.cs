@@ -42,13 +42,7 @@ public class MainWindowViewModel
     private Task<PSObject?>? _commandExecutionTask;
     
     private readonly Action _closeWindowAction;
-    
     private readonly RichTextBox _commandResultRichTextBox;
-    
-    /// <summary>
-    /// Gets the bindings instance that contains properties and commands for data binding in the main window ViewModel
-    /// </summary>
-    public MainWindowViewModelBindings Bindings { get; }
 
     /// <summary>
     /// Initializes a new instance of the <see cref="MainWindowViewModel"/> class
@@ -94,31 +88,11 @@ public class MainWindowViewModel
         // Set initial working directory path
         Bindings.WorkingDirectoryPath = _powerShellService.WorkingDirectoryPath;
     }
-
-    private void HandleErrorStreamInput(ErrorRecord errorRecord)
-    {
-        CommandResultAddLine(errorRecord.ToSingleLineString(), CommandOutputColors.Error);
-    }
-
-    private void HandleWarningStreamInput(WarningRecord warningMessage)
-    {
-        CommandResultAddLine(warningMessage.ToSingleLineString(), CommandOutputColors.Warning);
-    }
-
-    private void HandleVerboseStreamInput(VerboseRecord verboseMessage)
-    {
-        CommandResultAddLine(verboseMessage.ToSingleLineString(), CommandOutputColors.Verbose);
-    }
-
-    private void HandleDebugStreamInput(DebugRecord debugMessage)
-    {
-        CommandResultAddLine(debugMessage.ToSingleLineString(), CommandOutputColors.Debug);
-    }
-
-    private void HandleInformationStreamInput(InformationRecord informationMessage)
-    {
-        CommandResultAddLine(informationMessage.ToSingleLineString(), CommandOutputColors.Information);
-    }
+    
+    /// <summary>
+    /// Gets the bindings instance that contains properties and commands for data binding in the main window ViewModel
+    /// </summary>
+    public MainWindowViewModelBindings Bindings { get; }
 
     /// <summary>
     /// Writes the specified objects to the host output using the specified colors and format options
@@ -391,6 +365,51 @@ public class MainWindowViewModel
             _commandResultRichTextBox.Document?.Blocks.Clear();
         });
     }
+    
+    /// <summary>
+    /// Handles input from the PowerShell's error stream
+    /// </summary>
+    /// <param name="errorRecord">
+    /// The <see cref="ErrorRecord"/> object representing the error details from the PowerShell execution
+    /// </param>
+    private void HandleErrorStreamInput(ErrorRecord errorRecord) =>
+        CommandResultAddLine(errorRecord.ToSingleLineString(), CommandOutputColors.Error);
+
+    /// <summary>
+    /// Handles input from the PowerShell's warning stream
+    /// </summary>
+    /// <param name="warningRecord">
+    /// The <see cref="WarningRecord"/> object representing the error details from the PowerShell execution
+    /// </param>
+    private void HandleWarningStreamInput(WarningRecord warningRecord) =>
+        CommandResultAddLine(warningRecord.ToSingleLineString("WARNING: "), CommandOutputColors.Warning);
+
+    /// <summary>
+    /// Handles input from the PowerShell's verbose stream
+    /// </summary>
+    /// <param name="verboseRecord">
+    /// The <see cref="VerboseRecord"/> object representing the error details from the PowerShell execution
+    /// </param>
+    private void HandleVerboseStreamInput(VerboseRecord verboseRecord) =>
+        CommandResultAddLine(verboseRecord.ToSingleLineString("VERBOSE: "), CommandOutputColors.Verbose);
+
+    /// <summary>
+    /// Handles input from the PowerShell's debug stream
+    /// </summary>
+    /// <param name="debugRecord">
+    /// The <see cref="DebugRecord"/> object representing the error details from the PowerShell execution
+    /// </param>
+    private void HandleDebugStreamInput(DebugRecord debugRecord) =>
+        CommandResultAddLine(debugRecord.ToSingleLineString("DEBUG: "), CommandOutputColors.Debug);
+    
+    /// <summary>
+    /// Handles input from the PowerShell's information stream
+    /// </summary>
+    /// <param name="informationRecord">
+    /// The <see cref="InformationRecord"/> object representing the error details from the PowerShell execution
+    /// </param>
+    private void HandleInformationStreamInput(InformationRecord informationRecord) =>
+        CommandResultAddLine(informationRecord.ToSingleLineString(), CommandOutputColors.Information);
 
     /// <summary>
     /// Converts a <see cref="ConsoleColor"/> to a <see cref="Color"/>
