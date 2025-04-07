@@ -17,13 +17,9 @@ public partial class MainWindow : Window
         InitializeComponent();
         
         _powerShellService = new PowerShellService();
-        _viewModel = new MainWindowViewModel(_powerShellService, new CommandHistory())
-        {
-            CloseWindowAction = () => Dispatcher.Invoke(Close),
-            FocusInputTextBoxAction = () => Dispatcher.Invoke(() => CommandInputTextBox.Focus()),
-            FocusResultTextBoxAction = () => Dispatcher.Invoke(() => CommandResultRichTextBox.Focus()),
-            CommandResultRichTextBox = CommandResultRichTextBox
-        };
+        _viewModel = new MainWindowViewModel(_powerShellService, new CommandHistory(),
+            () => Dispatcher.Invoke(Close), () => Dispatcher.Invoke(() => CommandInputTextBox.Focus()),
+            () => Dispatcher.Invoke(() => ReadTextBox.Focus()), CommandResultRichTextBox);
         
         DataContext = _viewModel.Bindings;
         CommandInputTextBox.Focus();

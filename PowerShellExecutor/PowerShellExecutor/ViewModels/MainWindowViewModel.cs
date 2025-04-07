@@ -1,8 +1,11 @@
 using System.IO;
 using System.Management.Automation;
+using System.Management.Automation.Runspaces;
+using System.Text;
 using System.Windows.Media;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Documents;
 using System.Windows.Input;
 using CommunityToolkit.Mvvm.Input;
@@ -17,16 +20,19 @@ namespace PowerShellExecutor.ViewModels;
 /// </summary>
 public class MainWindowViewModel
 {
-    private record TextBoxBrushes(Brush Foreground, Brush Background);
-    private static class CommandOutputBrushes
+    private record ColorScheme(Color Foreground, Color Background);
+    private static class CommandOutputColors
     {
-        public static readonly TextBoxBrushes Default = new(Brushes.White, Brushes.Transparent);
-        public static readonly TextBoxBrushes Error = new(Brushes.Red, Brushes.Black);
-        public static readonly TextBoxBrushes Verbose = new(Brushes.Yellow, Brushes.Black);
-        public static readonly TextBoxBrushes Debug = new(Brushes.Yellow, Brushes.Black);
-        public static readonly TextBoxBrushes Warning = new(Brushes.Yellow, Brushes.Black);
-        public static readonly TextBoxBrushes Information = new(Brushes.White, Brushes.Transparent);
+        public static readonly ColorScheme Default = new(Colors.White, Colors.Transparent);
+        public static readonly ColorScheme Error = new(Colors.Red, Colors.Black);
+        public static readonly ColorScheme Verbose = new(Colors.Yellow, Colors.Black);
+        public static readonly ColorScheme Debug = new(Colors.Yellow, Colors.Black);
+        public static readonly ColorScheme Warning = new(Colors.Yellow, Colors.Black);
+        public static readonly ColorScheme Information = new(Colors.White, Colors.Transparent);
     }
+    
+    private const char SecureStringMaskChar = '*';
+    private static readonly Color DefaultColor = Colors.White;
     
     private readonly PowerShellService _powerShellService;
     private readonly CommandHistory _commandHistory;
@@ -37,91 +43,109 @@ public class MainWindowViewModel
     private bool _commandResultDisplayHandled;
     private bool _commandExecutionStopped;
     
-    private readonly AutoResetEvent _resultTextBoxInputReady = new(false);
+    private readonly AutoResetEvent _readTextBoxSubmitted = new(false);
     private Task<PowerShellExecutionResult>? _commandExecutionTask;
-
-    /// <summary>
-    /// Gets the RichTextBox control used for displaying and interacting with the command execution results
-    /// </summary>
-    public RichTextBox CommandResultRichTextBox { get; init; }
+    
+    private Action _focusInputTextBoxAction;
+    private Action _focuReadTextBoxAction;
+    
+    private RichTextBox _commandResultRichTextBox;
     
     /// <summary>
     /// Gets the bindings instance that contains properties and commands for data binding in the main window ViewModel
     /// </summary>
     public MainWindowViewModelBindings Bindings { get; }
-    
-    /// <summary>
-    /// Gets or sets the action that will be invoked to close the main application window
-    /// </summary>
-    public Action CloseWindowAction { get; init; }
-    /// <summary>
-    /// Gets or sets the action that will be invoked to focus the input text box within the main application window
-    /// </summary>
-    public Action FocusInputTextBoxAction { get; init; }
-    /// <summary>
-    /// Gets or sets the action that will be invoked to focus the result text box within the main application window
-    /// </summary>
-    public Action FocusResultTextBoxAction { get; init; }
 
     /// <summary>
     /// Initializes a new instance of the <see cref="MainWindowViewModel"/> class
     /// </summary>
     /// <param name="powerShellService">The service for working with PowerShell</param>
     /// <param name="commandHistory">The <see cref="CommandHistory"/> object used for PowerShell command history</param>
-    public MainWindowViewModel(PowerShellService powerShellService, CommandHistory commandHistory)
+    /// <param name="closeWindowAction">An action to close the main application window.</param>
+    /// <param name="focusInputTextBoxAction">An action to set focus on the command input text box.</param>
+    /// <param name="focuReadTextBoxAction">An action to set focus on the read-only text box displaying command results.</param>
+    /// <param name="commandResultRichTextBox">The rich text box used for displaying command results in the main window.</param>
+    public MainWindowViewModel(PowerShellService powerShellService, CommandHistory commandHistory,
+        Action closeWindowAction, Action focusInputTextBoxAction, Action focuReadTextBoxAction,
+        RichTextBox commandResultRichTextBox)
     {
         _powerShellService = powerShellService;
         _commandHistory = commandHistory;
+        _focusInputTextBoxAction = focusInputTextBoxAction;
+        _focuReadTextBoxAction = focuReadTextBoxAction;
+        _commandResultRichTextBox = commandResultRichTextBox;
 
         Bindings = new MainWindowViewModelBindings()
         {
             CommandInputEnterKeyCommand = new AsyncRelayCommand(ExecuteCommand),
+            ReadTextBoxEnterKeyCommand = new RelayCommand(SubmitReadTextBox),
             CommandInputUpKeyCommand = new RelayCommand(SetCommandToHistoryNext),
             CommandInputDownKeyCommand = new RelayCommand(SetCommandToHistoryPrev),
             CommandInputEscapeKeyCommand = new RelayCommand(ResetCommandInput),
             CommandInputTabKeyCommand = new RelayCommand(GetNextCompletion),
             InputTextChangedCommand = new RelayCommand(OnInputTextChanged),
-            CommandResultEnterKeyCommand = new RelayCommand(ReadHostInputSubmitted),
-            CommandResultControlCCommand = new RelayCommand(StopReadHost)
+            ReadTextBoxControlCCommand = new RelayCommand(StopReadHost)
         };
-
-        PowerShellCommandOverrides.ViewModelInstance = this;
-        _powerShellService.RegisterCommandOverrides<PowerShellCommandOverrides>();
+        
+        _powerShellService.RegisterCustomCmdlet<WriteHostCmdlet>();
+        _powerShellService.RegisterCustomCmdlet<ClearHostCmdlet>();
+        _powerShellService.RegisterCustomCmdlet<ReadHostCmdlet>();
+        _powerShellService.ExitCommandHandler = closeWindowAction;
+        _powerShellService.SetVariable(nameof(MainWindowViewModel), this);
 
         // Set initial working directory path
         Bindings.WorkingDirectoryPath = _powerShellService.WorkingDirectoryPath;
     }
-    
+
     /// <summary>
-    /// Handles the Write-Host command by updating the command result text boc with the provided text
+    /// Writes the specified objects to the host output using the specified colors and format options
     /// </summary>
-    /// <param name="text">The text to display in the command result output</param>
-    public void WriteHost(string text)
+    /// <param name="objects">The objects to write to the host output</param>
+    /// <param name="foregroundColor">The color of the text to display. If null, uses the default foreground color</param>
+    /// <param name="backgroundColor">The color of the background to display. If null, uses the default background color</param>
+    /// <param name="separator">The separator string to use when concatenating the objects</param>
+    /// <param name="noNewLine">A flag indicating whether to suppress the automatic newline at the end of the output</param>
+    public void WriteHost(object[] objects, string? foregroundColor, string? backgroundColor, string separator,
+        bool noNewLine)
     {
-        CommandResultAddLine(text, CommandOutputBrushes.Default);
+        var text = string.Join(separator, objects);
+        var foregroundColorValue = CommandOutputColors.Default.Foreground;
+        var backgroundColorValue = CommandOutputColors.Default.Background;
+    
+        if (foregroundColor is not null)
+            foregroundColorValue = ConvertStringToColor(foregroundColor);
+        if (backgroundColor is not null)
+            backgroundColorValue = ConvertStringToColor(backgroundColor);
+    
+        if (!noNewLine)
+            text += Environment.NewLine;
+    
+        CommandResultAddLine(text, new ColorScheme(foregroundColorValue, backgroundColorValue));
         _commandResultDisplayHandled = true;
     }
+    
+    
 
     /// <summary>
     /// Handles the Read-Host command by waiting for user input in the command result text box
     /// </summary>
     /// <returns>The string entered by the user into the result text box</returns>
     /// <remarks>This is a blocking method</remarks>
-    public string ReadHost()
+    public string ReadHost(string? prompt, bool asSecureString)
     {
-        CommandResultClear();
-        Bindings.IsResultTextBoxReadOnly = false;
         Bindings.IsInputTextBoxReadOnly = true;
-        FocusResultTextBoxAction();
+        Bindings.ReadText = string.Empty;
+        Bindings.PromptText = prompt ?? string.Empty;
+        Bindings.ReadTextBoxVisibility = Visibility.Visible;
+        _focuReadTextBoxAction();
         
-        _resultTextBoxInputReady.WaitOne();
+        _readTextBoxSubmitted.WaitOne();
         
-        var res = new TextRange(CommandResultRichTextBox.Document.ContentStart, CommandResultRichTextBox.Document.ContentEnd).Text.Trim();
+        var res = Bindings.ReadText;
         
-        CommandResultClear();
-        Bindings.IsResultTextBoxReadOnly = true;
+        Bindings.ReadTextBoxVisibility = Visibility.Collapsed;
         Bindings.IsInputTextBoxReadOnly = false;
-        FocusInputTextBoxAction();
+        _focusInputTextBoxAction();
         
         return res;
     }
@@ -136,18 +160,13 @@ public class MainWindowViewModel
     }
 
     /// <summary>
-    /// Handles the Exit-Host command by invoking the <see cref="CloseWindowAction"/>
-    /// </summary>
-    public void ExitHost() => CloseWindowAction();
-
-    /// <summary>
     /// Cleans up resources and ensures any ongoing command execution is completed
     /// </summary>
     public async Task Cleanup()
     {
         if (_commandExecutionTask is not null)
         {
-            _resultTextBoxInputReady.Set();
+            _readTextBoxSubmitted.Set();
             await _commandExecutionTask.ConfigureAwait(false);
         }
     }
@@ -297,17 +316,20 @@ public class MainWindowViewModel
     }
     
     /// <summary>
-    /// Handles input submission for Read-Host command
+    /// Signals that input to the read textbox is ready to be processed.
     /// </summary>
-    private void ReadHostInputSubmitted(object obj) => _resultTextBoxInputReady.Set();
-
+    private void SubmitReadTextBox()
+    {
+        _readTextBoxSubmitted.Set();
+    }
+    
     /// <summary>
     /// Stops the execution of the Read-Host command
     /// </summary>
     private void StopReadHost()
     {
         _commandExecutionStopped = true;
-        _resultTextBoxInputReady.Set();
+        _readTextBoxSubmitted.Set();
     }
     
     /// <summary>
@@ -316,26 +338,26 @@ public class MainWindowViewModel
     /// <param name="executionResult">The result of the PowerShell script execution</param>
     private void GenerateResultOutput(PowerShellExecutionResult executionResult)
     {
-        Application.Current.Dispatcher.Invoke(() =>
+        _commandResultRichTextBox.Dispatcher.Invoke(() =>
         {
-            if (CommandResultRichTextBox.Document is null) return;
+            if (_commandResultRichTextBox.Document is null) return;
 
-            CommandResultRichTextBox.Document.Blocks.Clear();
+            _commandResultRichTextBox.Document.Blocks.Clear();
             
             if (executionResult.CommandResults is not null)
-                CommandResultAddLine(executionResult.CommandResults.ToItemListString(), CommandOutputBrushes.Default);
+                CommandResultAddLine(executionResult.CommandResults.ToItemListString(), CommandOutputColors.Default);
             if (executionResult.ParseErrors is not null)
-                CommandResultAddLine(executionResult.ParseErrors.ToItemListString(), CommandOutputBrushes.Error);
+                CommandResultAddLine(executionResult.ParseErrors.ToItemListString(), CommandOutputColors.Error);
             if (executionResult.Errors is not null)
-                CommandResultAddLine(executionResult.Errors.ToItemListString(), CommandOutputBrushes.Error);
+                CommandResultAddLine(executionResult.Errors.ToItemListString(), CommandOutputColors.Error);
             if (executionResult.Warnings is not null)
-                CommandResultAddLine(executionResult.Warnings.ToItemListString("WARNING: "), CommandOutputBrushes.Warning);
+                CommandResultAddLine(executionResult.Warnings.ToItemListString("WARNING: "), CommandOutputColors.Warning);
             if (executionResult.VerboseMessages is not null)
-                CommandResultAddLine(executionResult.VerboseMessages.ToItemListString("VERBOSE: "), CommandOutputBrushes.Verbose);
+                CommandResultAddLine(executionResult.VerboseMessages.ToItemListString("VERBOSE: "), CommandOutputColors.Verbose);
             if (executionResult.DebugMessages is not null)
-                CommandResultAddLine(executionResult.DebugMessages.ToItemListString("DEBUG: "), CommandOutputBrushes.Debug);
+                CommandResultAddLine(executionResult.DebugMessages.ToItemListString("DEBUG: "), CommandOutputColors.Debug);
             if (executionResult.InformationMessages is not null)
-                CommandResultAddLine(executionResult.InformationMessages.ToItemListString(), CommandOutputBrushes.Information);
+                CommandResultAddLine(executionResult.InformationMessages.ToItemListString(), CommandOutputColors.Information);
         });
     }
 
@@ -344,23 +366,23 @@ public class MainWindowViewModel
     /// </summary>
     /// <param name="text">The text to add to the result display</param>
     /// <param name="textBoxBrushes">The brushes used to format the foreground and background of the text</param>
-    private void CommandResultAddLine(string text, TextBoxBrushes textBoxBrushes)
+    private void CommandResultAddLine(string text, ColorScheme colorScheme)
     {
         ArgumentNullException.ThrowIfNull(text);
-        ArgumentNullException.ThrowIfNull(textBoxBrushes);
-        
-        Application.Current.Dispatcher.Invoke(() =>
+        ArgumentNullException.ThrowIfNull(colorScheme);
+    
+        _commandResultRichTextBox.Dispatcher.Invoke(() =>
         {
             var paragraph = new Paragraph(new Run(text)
             {
-                Background = textBoxBrushes.Background,
-                Foreground = textBoxBrushes.Foreground
+                Background = new SolidColorBrush(colorScheme.Background),
+                Foreground = new SolidColorBrush(colorScheme.Foreground)
             })
             {
                 Margin = new Thickness(0)
             };
-
-            CommandResultRichTextBox.Document.Blocks.Add(paragraph);
+    
+            _commandResultRichTextBox.Document.Blocks.Add(paragraph);
         });
     }
 
@@ -370,9 +392,26 @@ public class MainWindowViewModel
     /// </summary>
     private void CommandResultClear()
     {
-        Application.Current.Dispatcher.Invoke(() =>
+        _commandResultRichTextBox.Dispatcher.Invoke(() =>
         {
-            CommandResultRichTextBox.Document?.Blocks.Clear();
+            _commandResultRichTextBox.Document?.Blocks.Clear();
         });
+    }
+
+    /// <summary>
+    /// Converts a string representing a color name or value to a <see cref="Brush"/>.
+    /// </summary>
+    /// <param name="colorName">The name or hexadecimal value of the color to convert</param>
+    /// <returns>A <see cref="Brush"/> corresponding to the provided color name or value. If the conversion fails, returns a default brush</returns>
+    private Color ConvertStringToColor(string colorName)
+    {
+        try
+        {
+            return (Color)ColorConverter.ConvertFromString(colorName);
+        }
+        catch
+        {
+            return DefaultColor;
+        }
     }
 }

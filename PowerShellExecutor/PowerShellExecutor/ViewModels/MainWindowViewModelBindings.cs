@@ -1,23 +1,29 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using System.Windows;
 using System.Windows.Input;
-using System.Windows.Media;
 
 namespace PowerShellExecutor.ViewModels;
 
 public class MainWindowViewModelBindings  : INotifyPropertyChanged
 {
     private string _commandInput = string.Empty;
+    private string _readText = string.Empty;
+    private string _promptText = string.Empty;
     private string _workingDirectoryPath = string.Empty;
-    private Brush _resultForeground = Brushes.White;
     private int _commandInputCaretIndex = 0;
-    private bool _isResultTextBoxReadOnly = true;
     private bool _isInputTextBoxReadOnly = false;
+    private Visibility _readTextBoxVisibility = Visibility.Collapsed;
 
     /// <summary>
     /// Gets the command that triggers when the Enter key is pressed on CommandInputTextBox
     /// </summary>
     public ICommand CommandInputEnterKeyCommand { get; init; }
+    
+    /// <summary>
+    /// Gets the command that triggers when the Enter key is pressed on CommandInputTextBox
+    /// </summary>
+    public ICommand ReadTextBoxEnterKeyCommand { get; init; }
 
     /// <summary>
     /// Gets the command that triggers when the Up key is pressed on CommandInputTextBox
@@ -47,28 +53,7 @@ public class MainWindowViewModelBindings  : INotifyPropertyChanged
     /// <summary>
     /// Gets the command that triggers when the Enter key is pressed on CommandResultTextBox
     /// </summary>
-    public ICommand CommandResultEnterKeyCommand { get; init; }
-
-    /// <summary>
-    /// Gets the command that triggers when the Enter key is pressed on CommandResultTextBox
-    /// </summary>
-    public ICommand CommandResultControlCCommand { get; init; }
-
-    /// <summary>
-    /// Gets or sets the result text foreground color
-    /// </summary>
-    public Brush ResultForeground
-    {
-        get => _resultForeground;
-        set
-        {
-            if (value != _resultForeground)
-            {
-                _resultForeground = value;
-                OnPropertyChanged(nameof(ResultForeground));
-            }
-        }
-    }
+    public ICommand ReadTextBoxControlCCommand { get; init; }
 
     /// <summary>
     /// Gets or sets the command input text
@@ -82,6 +67,22 @@ public class MainWindowViewModelBindings  : INotifyPropertyChanged
             {
                 _commandInput = value;
                 OnPropertyChanged(nameof(CommandInput));
+            }
+        }
+    }
+    
+    /// <summary>
+    /// Gets or sets the command input text
+    /// </summary>
+    public string ReadText
+    {
+        get => _readText;
+        set
+        {
+            if (value != _readText)
+            {
+                _readText = value;
+                OnPropertyChanged(nameof(ReadText));
             }
         }
     }
@@ -117,23 +118,7 @@ public class MainWindowViewModelBindings  : INotifyPropertyChanged
             }
         }
     }
-
-    /// <summary>
-    /// Gets or sets the result text box IsReadOnly property
-    /// </summary>
-    public bool IsResultTextBoxReadOnly
-    {
-        get => _isResultTextBoxReadOnly;
-        set
-        {
-            if (value != _isResultTextBoxReadOnly)
-            {
-                _isResultTextBoxReadOnly = value;
-                OnPropertyChanged(nameof(IsResultTextBoxReadOnly));
-            }
-        }
-    }
-
+    
     /// <summary>
     /// Gets or sets the input text box IsReadOnly property
     /// </summary>
@@ -149,6 +134,35 @@ public class MainWindowViewModelBindings  : INotifyPropertyChanged
             }
         }
     }
+    
+    public Visibility ReadTextBoxVisibility
+    {
+        get => _readTextBoxVisibility;
+        set
+        {
+            if (value != _readTextBoxVisibility)
+            {
+                _readTextBoxVisibility = value;
+                OnPropertyChanged(nameof(ReadTextBoxVisibility));
+            }
+        }
+    }
+    
+    public string PromptText
+    {
+        get => _promptText;
+        set
+        {
+            if (value != _promptText)
+            {
+                _promptText = value;
+                OnPropertyChanged(nameof(PromptText));
+                OnPropertyChanged(nameof(PromptTextBoxVisibility));
+            }
+        }
+    }
+    
+    public Visibility PromptTextBoxVisibility => _promptText.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
     
     /// <summary>
     /// Event triggered when a property value changes

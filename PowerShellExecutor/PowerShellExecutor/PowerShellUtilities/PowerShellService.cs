@@ -1,5 +1,7 @@
+using System.Collections.ObjectModel;
 using System.IO;
 using System.Management.Automation;
+using System.Management.Automation.Host;
 using System.Management.Automation.Language;
 using System.Management.Automation.Runspaces;
 using System.Reflection;
@@ -16,9 +18,6 @@ public class PowerShellService : IDisposable
     private readonly Runspace _runspace;
     private readonly PowerShell _powerShell;
     
-    private MethodInfo? _exitCommandHandler;
-    private readonly HashSet<string> _commandOverrides = [];
-    
     /// <summary>
     /// Creates and opens a dedicated <see cref="Runspace"/>.
     /// Uses the created <see cref="Runspace"/> to create a <see cref="PowerShell"/> instance
@@ -32,6 +31,8 @@ public class PowerShellService : IDisposable
         
         SetLocationToHomeDirectory();
     }
+
+    public Action? ExitCommandHandler { get; set; }
     
     /// <summary>
     /// Gets the path to current working directory of the PowerShell runspace
@@ -39,55 +40,34 @@ public class PowerShellService : IDisposable
     public string WorkingDirectoryPath => _powerShell.Runspace.SessionStateProxy.Path.CurrentLocation.Path;
 
     /// <summary>
-    /// Registers command overrides for a specified type, enabling the overriding
-    /// of PowerShell commands based on static public methods in the type.
-    /// A method must be public, static, and have the  <see cref="PowerShellCommandAttribute"/>
-    /// applied to be considered for overriding.
+    /// Registers a custom cmdlet for use within the current PowerShell execution context.
+    /// The cmdlet type is determined by the generic type parameter.
     /// </summary>
-    /// <typeparam name="T">
-    /// A class defining static public methods decorated with <see cref="PowerShellCommandAttribute"/>
-    /// to specify PowerShell command overrides.
-    /// </typeparam>
-    /// <exception cref="InvalidOperationException">
-    /// Thrown if a command name is empty, already overridden, if the specified command name is not valid
-    /// in the PowerShell context, or in case of the 'exit' command, if the method signature is not valid.
-    /// </exception>
-    public void RegisterCommandOverrides<T>() where T : class
+    /// <typeparam name="T">The type of the custom cmdlet to register. It must be derived from <see cref="Cmdlet"/></typeparam>
+    public void RegisterCustomCmdlet<T>() where T : Cmdlet
     {
-        var methods = typeof(T).GetMethods(BindingFlags.Static | BindingFlags.Public);
-        foreach (var method in methods)
-        {
-            var commandAttribute = method.GetCustomAttribute<PowerShellCommandAttribute>();
-            if (commandAttribute is null) continue;
+        var cmdletAttribute = typeof(T).GetCustomAttribute<CmdletAttribute>();
+        if (cmdletAttribute is null)
+            throw new InvalidOperationException($"The type '{typeof(T).FullName}' does not have a CmdletAttribute");
+        var cmdletName = $"{cmdletAttribute.VerbName}-{cmdletAttribute.NounName}";
+        
+        _powerShell.Commands.Clear();
+        _powerShell.Streams.ClearStreams();
 
-            var commandName = commandAttribute.CommandName.ToLowerInvariant();
-            
-            if (string.IsNullOrWhiteSpace(commandName))
-                throw new InvalidOperationException("Command name cannot be empty");
-            
-            if (_commandOverrides.Contains(commandName))
-                throw new InvalidOperationException(
-                    $"Command '{commandName}' is already overridden.");
-            
-            // Exit command has to be handled separately, because 'exit' is a keyword, and not function, cmdlet or alias
-            if (commandName.Equals("exit", StringComparison.OrdinalIgnoreCase))
-            {
-                if (method.GetParameters().Length != 0 || method.ReturnType != typeof(void))
-                    throw new InvalidOperationException("Exit command override must be a parameterless void method");
-                    
-                _exitCommandHandler = method;
-            }
-            else
-            {
-                if (!IsFunctionOrCmdlet(commandName))
-                    throw new InvalidOperationException($"Command '{commandName}' is not a function or a cmdlet.");
-            
-                var script = PowershellFunctionScriptGenerator.Generate(commandName, method);
-                ExecuteScript(script);
-            }
-
-            _commandOverrides.Add(commandName);
-        }
+        /*
+         * Try to remove any existing functions since they will override the cmdlet
+         * For example Clear-Host is defined as function for some reason
+         */
+        _powerShell.AddCommand("Remove-Item")
+            .AddParameter("Path", $"function:{cmdletName}")
+            .Invoke();
+        
+        _powerShell.Commands.Clear();
+        _powerShell.Streams.ClearStreams();
+        
+        _powerShell.AddCommand("Import-Module")
+            .AddParameter("Assembly", typeof(T).Assembly)
+            .Invoke();
     }
 
     /// <summary>
@@ -139,6 +119,16 @@ public class PowerShellService : IDisposable
     }
 
     /// <summary>
+    /// Sets a variable in the PowerShell runspace session state with the specified name and value
+    /// </summary>
+    /// <param name="name">The name of the variable to set in the session state</param>
+    /// <param name="value">The value to assign to the variable</param>
+    public void SetVariable(string name, object value)
+    {
+        _runspace.SessionStateProxy.SetVariable(name, value);
+    }
+
+    /// <summary>
     /// Executes a PowerShell script after parsing and validating the input script.
     /// Updates the provided <see cref="PowerShellExecutionResult"/> with the outcome of the script execution
     /// </summary>
@@ -171,9 +161,9 @@ public class PowerShellService : IDisposable
             throw;
         }
 
-        if (result.IsSuccessful && containsExit && _exitCommandHandler is not null)
+        if (result.IsSuccessful && containsExit && ExitCommandHandler is not null)
         {
-            _exitCommandHandler.Invoke(null, null);
+            ExitCommandHandler();
         }
     }
     
