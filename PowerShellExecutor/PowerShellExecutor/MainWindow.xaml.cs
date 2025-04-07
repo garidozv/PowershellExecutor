@@ -9,15 +9,16 @@ namespace PowerShellExecutor;
 /// </summary>
 public partial class MainWindow : Window
 {
-    private readonly PowerShellService _powerShellService;
+    private readonly PowerShellWrapper _powerShellWrapper;
     private readonly MainWindowViewModel _viewModel;
     
     public MainWindow()
     {
         InitializeComponent();
         
-        _powerShellService = new PowerShellService();
-        _viewModel = new MainWindowViewModel(_powerShellService, new CommandHistory(),
+        _powerShellWrapper = new PowerShellWrapper();
+        var powerShellService = new PowerShellService(_powerShellWrapper);
+        _viewModel = new MainWindowViewModel(powerShellService, new CommandHistory(),
             () => Dispatcher.Invoke(Close), CommandResultRichTextBox);
         
         DataContext = _viewModel.Bindings;
@@ -27,7 +28,7 @@ public partial class MainWindow : Window
     protected override async void OnClosed(EventArgs e)
     {
         await _viewModel.Cleanup();
-        _powerShellService.Dispose();
+        _powerShellWrapper.Dispose();
         base.OnClosed(e);
     }
 
