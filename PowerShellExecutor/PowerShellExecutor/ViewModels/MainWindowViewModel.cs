@@ -1,13 +1,9 @@
 using System.IO;
 using System.Management.Automation;
-using System.Management.Automation.Runspaces;
-using System.Text;
 using System.Windows.Media;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
 using System.Windows.Documents;
-using System.Windows.Input;
 using CommunityToolkit.Mvvm.Input;
 using PowerShellExecutor.CustomCmdlets;
 using PowerShellExecutor.Helpers;
@@ -46,8 +42,9 @@ public class MainWindowViewModel
     private readonly AutoResetEvent _readTextBoxSubmitted = new(false);
     private Task<PSObject?>? _commandExecutionTask;
     
-    private Action _focusInputTextBoxAction;
-    private Action _focuReadTextBoxAction;
+    private readonly Action _focusInputTextBoxAction;
+    private readonly Action _focuReadTextBoxAction;
+    private readonly Action _closeWindowAction;
     
     private RichTextBox _commandResultRichTextBox;
     
@@ -73,6 +70,7 @@ public class MainWindowViewModel
         _commandHistory = commandHistory;
         _focusInputTextBoxAction = focusInputTextBoxAction;
         _focuReadTextBoxAction = focuReadTextBoxAction;
+        _closeWindowAction = closeWindowAction;
         _commandResultRichTextBox = commandResultRichTextBox;
 
         Bindings = new MainWindowViewModelBindings()
@@ -90,7 +88,7 @@ public class MainWindowViewModel
         _powerShellService.RegisterCustomCmdlet<WriteHostCmdlet>();
         _powerShellService.RegisterCustomCmdlet<ClearHostCmdlet>();
         _powerShellService.RegisterCustomCmdlet<ReadHostCmdlet>();
-        _powerShellService.ExitCommandHandler = closeWindowAction;
+        _powerShellService.RegisterCustomCmdlet<ExitHostCmdlet>();
         _powerShellService.SetVariable(nameof(MainWindowViewModel), this);
         
         _powerShellService.SubscribeToErrorStream(HandleErrorStreamInput);
@@ -136,7 +134,7 @@ public class MainWindowViewModel
     /// <param name="backgroundColor">The color of the background to display. If null, uses the default background color</param>
     /// <param name="separator">The separator string to use when concatenating the objects</param>
     /// <param name="noNewLine">A flag indicating whether to suppress the automatic newline at the end of the output</param>
-    public void WriteHost(object[] objects, string? foregroundColor, string? backgroundColor, string separator,
+    public void WriteHost(object[] objects, ConsoleColor? foregroundColor, ConsoleColor? backgroundColor, string separator,
         bool noNewLine)
     {
         var text = string.Join(separator, objects);
@@ -144,18 +142,14 @@ public class MainWindowViewModel
         var backgroundColorValue = CommandOutputColors.Default.Background;
     
         if (foregroundColor is not null)
-            foregroundColorValue = ConvertStringToColor(foregroundColor);
+            foregroundColorValue = ConvertConsoleColorToColor(foregroundColor.Value);
         if (backgroundColor is not null)
-            backgroundColorValue = ConvertStringToColor(backgroundColor);
+            backgroundColorValue = ConvertConsoleColorToColor(backgroundColor.Value);
     
-        if (!noNewLine)
-            text += Environment.NewLine;
-    
+        // noNewLine is ignored since the way output is displayed has a new line by default
+        
         CommandResultAddLine(text, new ColorScheme(foregroundColorValue, backgroundColorValue));
-        //_commandResultDisplayHandled = true;
     }
-    
-    
 
     /// <summary>
     /// Handles the Read-Host command by waiting for user input in the command result text box
@@ -189,6 +183,11 @@ public class MainWindowViewModel
         CommandResultClear();
         _commandResultDisplayHandled = true;
     }
+
+    /// <summary>
+    /// Terminates the host session and triggers an action to close the main application window.
+    /// </summary>
+    public void ExitHost() => _closeWindowAction();
 
     /// <summary>
     /// Cleans up resources and ensures any ongoing command execution is completed
@@ -402,19 +401,31 @@ public class MainWindowViewModel
     }
 
     /// <summary>
-    /// Converts a string representing a color name or value to a <see cref="Brush"/>.
+    /// Converts a <see cref="ConsoleColor"/> to a <see cref="Color"/>
     /// </summary>
-    /// <param name="colorName">The name or hexadecimal value of the color to convert</param>
-    /// <returns>A <see cref="Brush"/> corresponding to the provided color name or value. If the conversion fails, returns a default brush</returns>
-    private Color ConvertStringToColor(string colorName)
+    /// <param name="consoleColor">The <see cref="ConsoleColor"/> to convert</param>
+    /// <returns>The corresponding <see cref="Color"/></returns>
+    private static Color ConvertConsoleColorToColor(ConsoleColor consoleColor)
     {
-        try
+        return consoleColor switch
         {
-            return (Color)ColorConverter.ConvertFromString(colorName);
-        }
-        catch
-        {
-            return DefaultColor;
-        }
+            ConsoleColor.Black => Colors.Black,
+            ConsoleColor.DarkBlue => Colors.DarkBlue,
+            ConsoleColor.DarkGreen => Colors.DarkGreen,
+            ConsoleColor.DarkCyan => Colors.DarkCyan,
+            ConsoleColor.DarkRed => Colors.DarkRed,
+            ConsoleColor.DarkMagenta => Colors.DarkMagenta,
+            ConsoleColor.DarkYellow => Colors.Olive,
+            ConsoleColor.Gray => Colors.Gray,
+            ConsoleColor.DarkGray => Colors.DarkGray,
+            ConsoleColor.Blue => Colors.Blue,
+            ConsoleColor.Green => Colors.Green,
+            ConsoleColor.Cyan => Colors.Cyan,
+            ConsoleColor.Red => Colors.Red,
+            ConsoleColor.Magenta => Colors.Magenta,
+            ConsoleColor.Yellow => Colors.Yellow,
+            ConsoleColor.White => Colors.White,
+            _ => DefaultColor
+        };
     }
 }
