@@ -16,13 +16,13 @@ public class WriteHostCmdlet : PSCmdlet
     [ValidateSet("Black", "DarkBlue", "DarkGreen", "DarkCyan", "DarkRed", "DarkMagenta", 
                  "DarkYellow", "Gray", "DarkGray", "Blue", "Green", "Cyan", "Red", 
                  "Magenta", "Yellow", "White")]
-    public ConsoleColor ForegroundColor { get; set; }
+    public ConsoleColor? ForegroundColor { get; set; }
 
     [Parameter]
     [ValidateSet("Black", "DarkBlue", "DarkGreen", "DarkCyan", "DarkRed", "DarkMagenta", 
                  "DarkYellow", "Gray", "DarkGray", "Blue", "Green", "Cyan", "Red", 
                  "Magenta", "Yellow", "White")]
-    public ConsoleColor BackgroundColor { get; set; }
+    public ConsoleColor? BackgroundColor { get; set; }
 
     [Parameter]
     public SwitchParameter NoNewline { get; set; }
