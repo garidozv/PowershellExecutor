@@ -5,40 +5,22 @@ namespace PowerShellExecutor.Helpers;
 public static class Extensions
 {
     /// <summary>
-    /// Converts an enumerable collection of objects into a single string, with each object's
-    /// string representation on a new line, optionally prefixed with a specified line prefix
+    /// Converts the string representation of an object to a single line, optionally prefixed, without a trailing newline.
     /// </summary>
-    /// <param name="enumerable">The collection of objects to convert to a string</param>
-    /// <param name="linePrefix">An optional string to prepend to each line. Default is <c>null</c></param>
-    /// <returns>A formatted string with one item per line, optionally prefixed by <paramref name="linePrefix"/></returns>
-    public static string ToItemListString(this IEnumerable<object> enumerable, string? linePrefix = null)
-    {
-        var strBuilder = new StringBuilder();
-        foreach (var item in enumerable)
-        {
-            strBuilder.Append(linePrefix).AppendLine(item.ToString());
-        }
-        if (strBuilder.Length >= Environment.NewLine.Length) 
-            strBuilder.Remove(strBuilder.Length - Environment.NewLine.Length, Environment.NewLine.Length);
-        
-        return strBuilder.ToString();
-    }
-    
-
-    /// <summary>
-    /// Converts an object to its string representation and removes the trailing new line if there is one
-    /// </summary>
-    /// <param name="obj">The object to be converted to a string</param>
+    /// <param name="obj">The object to convert to a single-line string.</param>
     /// <param name="linePrefix">An optional prefix to prepend to the string. Default is <c>null</c>.</param>
-    /// <returns>The string representation of the object without a trailing newline</returns>
+    /// <returns>A single-line string representation of the object without a trailing newline.</returns>
     public static string ToSingleLineString(this object obj, string? linePrefix = null)
     {
         var strBuilder = new StringBuilder();
         strBuilder.Append(obj);
-        if (strBuilder.Length >= Environment.NewLine.Length)
-            strBuilder.Remove(strBuilder.Length - Environment.NewLine.Length, Environment.NewLine.Length);
         
-        return strBuilder.ToString();
+        var str = strBuilder.ToString();
+        
+        if (str.EndsWith(Environment.NewLine))
+            str = str.Substring(0, str.Length - Environment.NewLine.Length);
+
+        return str;
     }
 
     /// <summary>
