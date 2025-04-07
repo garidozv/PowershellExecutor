@@ -4,7 +4,9 @@ using System.Windows.Media;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
-using PowershellExecutor.Helpers;
+using System.Windows.Input;
+using CommunityToolkit.Mvvm.Input;
+using PowerShellExecutor.CustomCmdlets;
 using PowerShellExecutor.Helpers;
 using PowerShellExecutor.PowerShellUtilities;
 
@@ -153,7 +155,7 @@ public class MainWindowViewModel
     /// <summary>
     /// Executes the PowerShell command represented by the current input and updates the UI with the result
     /// </summary>
-    private async Task ExecuteCommand(object? parameter)
+    private async Task ExecuteCommand(CancellationToken cancellationToken)
     {
         _commandHistory.AddCommand(Bindings.CommandInput);
 
@@ -185,7 +187,7 @@ public class MainWindowViewModel
     /// Sets the command input to the next command in the history.
     /// If at the start of history, the command will be cleared
     /// </summary>
-    private void SetCommandToHistoryPrev(object? parameter)
+    private void SetCommandToHistoryPrev()
     {
         var prevCommand = _commandHistory.PrevCommand();
         
@@ -206,7 +208,7 @@ public class MainWindowViewModel
     /// Sets the command input to the previous command in the history.
     /// If the end of history is reached, the command will not be changed
     /// </summary>
-    private void SetCommandToHistoryNext(object? parameter)
+    private void SetCommandToHistoryNext()
     {
         var nextCommand = _commandHistory.NextCommand();
         
@@ -221,7 +223,7 @@ public class MainWindowViewModel
     /// Clears the command input and resets any existing state related
     /// to the input
     /// </summary>
-    private void ResetCommandInput(object? parameter)
+    private void ResetCommandInput()
     {
         _commandHistory.MoveToStart();
         Bindings.CommandInput = string.Empty;
@@ -230,7 +232,7 @@ public class MainWindowViewModel
     /// <summary>
     /// Handles the next completion suggestion for the command input
     /// </summary>
-    private void GetNextCompletion(object? parameter)
+    private void GetNextCompletion()
     {
         if (_currentCompletion is null) 
         {
@@ -282,7 +284,7 @@ public class MainWindowViewModel
     /// <summary>
     /// Handles changes to the input text if change is not internal
     /// </summary>
-    private void OnInputTextChanged(object parameter)
+    private void OnInputTextChanged()
     {
         if (!_reactToInputTextChange)
         {
@@ -302,7 +304,7 @@ public class MainWindowViewModel
     /// <summary>
     /// Stops the execution of the Read-Host command
     /// </summary>
-    private void StopReadHost(object obj)
+    private void StopReadHost()
     {
         _commandExecutionStopped = true;
         _resultTextBoxInputReady.Set();
