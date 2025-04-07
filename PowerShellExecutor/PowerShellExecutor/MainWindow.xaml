@@ -111,7 +111,7 @@
                      Visibility="{Binding PromptTextBoxVisibility}"
                      IsReadOnly="True"
                      Style="{StaticResource TextBoxPowerShellStyle}"
-                     Padding="4, 0, 0, 0"
+                     Padding="4, 1, 0, 4"
                      VerticalContentAlignment="Center"
                      Text="{Binding PromptText, 
                         Mode=OneWay, 
