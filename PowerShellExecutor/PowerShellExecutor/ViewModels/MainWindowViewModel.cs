@@ -44,7 +44,7 @@ public class MainWindowViewModel
     private bool _commandExecutionStopped;
     
     private readonly AutoResetEvent _readTextBoxSubmitted = new(false);
-    private Task<PowerShellExecutionResult>? _commandExecutionTask;
+    private Task<PSObject?>? _commandExecutionTask;
     
     private Action _focusInputTextBoxAction;
     private Action _focuReadTextBoxAction;
@@ -92,9 +92,40 @@ public class MainWindowViewModel
         _powerShellService.RegisterCustomCmdlet<ReadHostCmdlet>();
         _powerShellService.ExitCommandHandler = closeWindowAction;
         _powerShellService.SetVariable(nameof(MainWindowViewModel), this);
+        
+        _powerShellService.SubscribeToErrorStream(HandleErrorStreamInput);
+        _powerShellService.SubscribeToDebugStream(HandleDebugStreamInput);
+        _powerShellService.SubscribeToVerboseStream(HandleVerboseStreamInput);
+        _powerShellService.SubscribeToWarningStream(HandleWarningStreamInput);
+        _powerShellService.SubscribeToInformationStream(HandleInformationStreamInput);
 
         // Set initial working directory path
         Bindings.WorkingDirectoryPath = _powerShellService.WorkingDirectoryPath;
+    }
+
+    private void HandleErrorStreamInput(ErrorRecord errorRecord)
+    {
+        CommandResultAddLine(errorRecord.ToSingleLineString(), CommandOutputColors.Error);
+    }
+
+    private void HandleWarningStreamInput(WarningRecord warningMessage)
+    {
+        CommandResultAddLine(warningMessage.ToSingleLineString(), CommandOutputColors.Warning);
+    }
+
+    private void HandleVerboseStreamInput(VerboseRecord verboseMessage)
+    {
+        CommandResultAddLine(verboseMessage.ToSingleLineString(), CommandOutputColors.Verbose);
+    }
+
+    private void HandleDebugStreamInput(DebugRecord debugMessage)
+    {
+        CommandResultAddLine(debugMessage.ToSingleLineString(), CommandOutputColors.Debug);
+    }
+
+    private void HandleInformationStreamInput(InformationRecord informationMessage)
+    {
+        CommandResultAddLine(informationMessage.ToSingleLineString(), CommandOutputColors.Information);
     }
 
     /// <summary>
@@ -199,7 +230,8 @@ public class MainWindowViewModel
             return;
         }
 
-        GenerateResultOutput(executionResult);
+        if (executionResult is not null)
+            CommandResultAddLine(executionResult.ToSingleLineString(), CommandOutputColors.Default);
     }
 
     /// <summary>
@@ -330,33 +362,6 @@ public class MainWindowViewModel
     {
         _commandExecutionStopped = true;
         _readTextBoxSubmitted.Set();
-    }
-    
-    /// <summary>
-    /// Generates and formats the output result based on the specified execution result data
-    /// </summary>
-    /// <param name="executionResult">The result of the PowerShell script execution</param>
-    private void GenerateResultOutput(PowerShellExecutionResult executionResult)
-    {
-        _commandResultRichTextBox.Dispatcher.Invoke(() =>
-        {
-            if (_commandResultRichTextBox.Document is null) return;
-            
-            if (executionResult.CommandResult is not null)
-                CommandResultAddLine(executionResult.CommandResult.ToSingleLineString(), CommandOutputColors.Default);
-            if (executionResult.ParseErrors is not null)
-                CommandResultAddLine(executionResult.ParseErrors.ToItemListString(), CommandOutputColors.Error);
-            if (executionResult.Errors is not null)
-                CommandResultAddLine(executionResult.Errors.ToItemListString(), CommandOutputColors.Error);
-            if (executionResult.Warnings is not null)
-                CommandResultAddLine(executionResult.Warnings.ToItemListString("WARNING: "), CommandOutputColors.Warning);
-            if (executionResult.VerboseMessages is not null)
-                CommandResultAddLine(executionResult.VerboseMessages.ToItemListString("VERBOSE: "), CommandOutputColors.Verbose);
-            if (executionResult.DebugMessages is not null)
-                CommandResultAddLine(executionResult.DebugMessages.ToItemListString("DEBUG: "), CommandOutputColors.Debug);
-            if (executionResult.InformationMessages is not null)
-                CommandResultAddLine(executionResult.InformationMessages.ToItemListString(), CommandOutputColors.Information);
-        });
     }
 
     /// <summary>

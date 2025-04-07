@@ -90,32 +90,32 @@ public class PowerShellService : IDisposable
     /// Executes the given PowerShell script and returns the execution result
     /// </summary>
     /// <param name="script">The PowerShell script to be executed</param>
-    /// <returns>A <see cref="PowerShellExecutionResult"/> containing the details of the execution</returns>
-    public PowerShellExecutionResult ExecuteScript(string script)
+    /// <returns>The string representation of the script result</returns>
+    public PSObject? ExecuteScript(string script)
     {
         ArgumentNullException.ThrowIfNull(script);
         
-        var res = new PowerShellExecutionResult
+        try
         {
-            IsSuccessful = true,
-            Script = script,
-        };
+            _powerShell.Streams.ClearStreams();
+            _powerShell.Commands.Clear();
 
-        if (string.IsNullOrEmpty(script))
-            return res;
-
-        Parser.ParseInput(script, out var tokens, out var errors);
-
-        if (errors.Length > 0)
+            _powerShell.AddScript(script)
+                .AddCommand("out-string");
+            
+            var invocationResult = _powerShell.Invoke();
+            return invocationResult.Count > 0 ? invocationResult[0] : null;
+        }
+        catch (ParseException e)
         {
-            res.IsSuccessful = false;
-            res.ParseErrors = errors;
-            return res;
+            foreach (var error in e.Errors)
+            {
+                _powerShell.Streams.Error.Add(new ErrorRecord(
+                    new Exception(error.Message), "Parse error", ErrorCategory.ParserError, null));
+            }
         }
         
-        ExecuteScriptInternal(script, tokens, res);
-
-        return res;
+        return null;
     }
 
     /// <summary>
@@ -128,44 +128,29 @@ public class PowerShellService : IDisposable
         _runspace.SessionStateProxy.SetVariable(name, value);
     }
 
-    /// <summary>
-    /// Executes a PowerShell script after parsing and validating the input script.
-    /// Updates the provided <see cref="PowerShellExecutionResult"/> with the outcome of the script execution
-    /// </summary>
-    /// <param name="script">The PowerShell script to be executed</param>
-    /// <param name="tokens">The tokens parsed from the input script</param>
-    /// <param name="result">An instance of <see cref="PowerShellExecutionResult"/> used to hold the execution results</param>
-    private void ExecuteScriptInternal(string script, Token[] tokens, PowerShellExecutionResult result)
+    public void SubscribeToErrorStream(Action<ErrorRecord> action)
     {
-        var containsExit = ScriptContainsExitCommand(tokens);
+        _powerShell.Streams.Error.DataAdded += (sender, args) => action(_powerShell.Streams.Error[args.Index]);
+    }
 
-        try
-        {
-            _powerShell.Streams.ClearStreams();
-            _powerShell.Commands.Clear();
+    public void SubscribeToVerboseStream(Action<VerboseRecord> action)
+    {
+        _powerShell.Streams.Verbose.DataAdded += (sender, args) => action(_powerShell.Streams.Verbose[args.Index]);
+    }
 
-            _powerShell.AddScript(script)
-                .AddCommand("out-string");
-            var invocationResult = _powerShell.Invoke();
+    public void SubscribeToWarningStream(Action<WarningRecord> action)
+    {
+        _powerShell.Streams.Warning.DataAdded += (sender, args) => action(_powerShell.Streams.Warning[args.Index]);
+    }
 
-            result.IsSuccessful = !_powerShell.HadErrors;
-            result.CommandResult = invocationResult.Count > 0 ? invocationResult[0] : null;
-            result.Errors = _powerShell.Streams.Error.Count > 0 ? _powerShell.Streams.Error : null;
-            result.VerboseMessages = _powerShell.Streams.Verbose.Count > 0 ? _powerShell.Streams.Verbose : null;
-            result.Warnings = _powerShell.Streams.Warning.Count > 0 ? _powerShell.Streams.Warning : null;
-            result.DebugMessages = _powerShell.Streams.Debug.Count > 0 ? _powerShell.Streams.Debug : null;
-            result.InformationMessages = _powerShell.Streams.Information.Count > 0 ? _powerShell.Streams.Information : null;
-        }
-        catch
-        {
-            // Possibly do not re-throw, but handle the exception by storing the exception message in the execution result
-            throw;
-        }
+    public void SubscribeToDebugStream(Action<DebugRecord> action)
+    {
+        _powerShell.Streams.Debug.DataAdded += (sender, args) => action(_powerShell.Streams.Debug[args.Index]);
+    }
 
-        if (result.IsSuccessful && containsExit && ExitCommandHandler is not null)
-        {
-            ExitCommandHandler();
-        }
+    public void SubscribeToInformationStream(Action<InformationRecord> action)
+    {
+        _powerShell.Streams.Information.DataAdded += (sender, args) => action(_powerShell.Streams.Information[args.Index]);
     }
     
     /// <summary>
@@ -177,21 +162,6 @@ public class PowerShellService : IDisposable
     public CommandCompletion GetCommandCompletions(string input, int cursorIndex) =>
         CommandCompletion.CompleteInput(input, cursorIndex, null, _powerShell);
     
-    /// <summary>
-    /// Determines whether the given name corresponds to a PowerShell function or cmdlet
-    /// </summary>
-    /// <param name="name">The name of the function or cmdlet to check</param>
-    /// <returns><c>true</c> if the specified name is a function or cmdlet; otherwise, <c>false</c></returns>
-    private bool IsFunctionOrCmdlet(string name)
-    {
-        ArgumentNullException.ThrowIfNull(name);
-        
-        var script = $"get-command {name} | where {{$_.CommandType -eq 'Function' -or $_.CommandType -eq 'Cmdlet'}}";
-        var res = ExecuteScript(script);
-        
-        return res.IsSuccessful && (res.CommandResult is not null);
-    }
-
     /// <summary>
     /// Determines whether the given completion corresponds to a directory path.
     /// If the provided completion is a relative path, it is combined with the
@@ -205,24 +175,6 @@ public class PowerShellService : IDisposable
         
         var fullPath = Path.IsPathRooted(completion) ? completion : Path.Combine(WorkingDirectoryPath, completion);
         return Directory.Exists(fullPath);
-    }
-    
-    /// <summary>
-    /// Converts a collection of <see cref="PSObject"/> instances into a single string representation.
-    /// Executes the "Out-String" PowerShell command on the provided objects to generate their string output.
-    /// </summary>
-    /// <param name="obj">The collection of <see cref="PSObject"/> to convert to a string.</param>
-    /// <returns>A string representation of the provided collection. If the result is empty, returns an empty string.</returns>
-    public string GetStringRepresentation(IEnumerable<PSObject> obj)
-    {
-        _powerShell.Commands.Clear();
-        _powerShell.Streams.ClearStreams();
-
-        var res = _powerShell.AddCommand("Out-String")
-            .AddParameter("InputObject", obj)
-            .Invoke();
-        
-        return res.Count > 0 ? res[0].ToString() : string.Empty;
     }
     
     /// <summary>
