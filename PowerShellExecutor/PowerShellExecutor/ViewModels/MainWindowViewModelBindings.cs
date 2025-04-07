@@ -72,7 +72,7 @@ public class MainWindowViewModelBindings  : INotifyPropertyChanged
     }
     
     /// <summary>
-    /// Gets or sets the command input text
+    /// Gets or sets the read text
     /// </summary>
     public string ReadText
     {
@@ -134,7 +134,10 @@ public class MainWindowViewModelBindings  : INotifyPropertyChanged
             }
         }
     }
-    
+
+    /// <summary>
+    /// Gets or sets the read tet box Visibility property
+    /// </summary>
     public Visibility ReadTextBoxVisibility
     {
         get => _readTextBoxVisibility;
@@ -147,7 +150,10 @@ public class MainWindowViewModelBindings  : INotifyPropertyChanged
             }
         }
     }
-    
+
+    /// <summary>
+    /// Gets or sets the prompt text
+    /// </summary>
     public string PromptText
     {
         get => _promptText;
@@ -161,8 +167,12 @@ public class MainWindowViewModelBindings  : INotifyPropertyChanged
             }
         }
     }
-    
-    public Visibility PromptTextBoxVisibility => _promptText.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
+
+    /// <summary>
+    /// Gets the visibility state of the prompt text box based on its contents
+    /// </summary>
+    public Visibility PromptTextBoxVisibility => 
+        _promptText.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
     
     /// <summary>
     /// Event triggered when a property value changes

@@ -3,11 +3,19 @@ using System.Management.Automation;
 
 namespace PowerShellExecutor.CustomCmdlets;
 
+/// <summary>
+/// Represents a custom PowerShell cmdlet that provides functionality to read input from the host
+/// </summary>
+/// <remarks>
+/// This cmdlet interacts with the <see cref="ViewModels.MainWindowViewModel"/> to invoke its clear mechanism for host content.
+/// If the "AsSecureString" parameter is provided, an exception will be thrown since secure string input is
+/// not currently supported
+/// </remarks>
 [Cmdlet(VerbsCommunications.Read, "Host")]
 public class ReadHostCmdlet : PSCmdlet
 {
-    private MainWindowViewModel _mainWindowViewModel =>
-        SessionState.PSVariable.Get(nameof(MainWindowViewModel)).Value as MainWindowViewModel;
+    private MainWindowViewModel? MainWindowViewModel =>
+        SessionState.PSVariable.Get(nameof(ViewModels.MainWindowViewModel)).Value as MainWindowViewModel;
     
     [Parameter(Mandatory = false, Position = 0)]
     public string Prompt { get; set; }
@@ -17,13 +25,13 @@ public class ReadHostCmdlet : PSCmdlet
     
     protected override void ProcessRecord()
     {
-        if (_mainWindowViewModel is null)
-            throw new InvalidOperationException($"A reference to the {nameof(MainWindowViewModel)} has not been set");
+        if (MainWindowViewModel is null)
+            throw new InvalidOperationException($"A reference to the {nameof(ViewModels.MainWindowViewModel)} has not been set");
 
         if (AsSecureString.IsPresent)
             throw new NotSupportedException("AsSecureString parameter is not supported yet.");
         
-        var res = _mainWindowViewModel.ReadHost(Prompt, AsSecureString.IsPresent);
+        var res = MainWindowViewModel.ReadHost(Prompt, AsSecureString.IsPresent);
         WriteObject(res);
     }
 }

@@ -50,8 +50,6 @@ public class MainWindowViewModel
     /// <param name="powerShellService">The service for working with PowerShell</param>
     /// <param name="commandHistory">The <see cref="CommandHistory"/> object used for PowerShell command history</param>
     /// <param name="closeWindowAction">An action to close the main application window.</param>
-    /// <param name="focusInputTextBoxAction">An action to set focus on the command input text box.</param>
-    /// <param name="focuReadTextBoxAction">An action to set focus on the read-only text box displaying command results.</param>
     /// <param name="commandResultRichTextBox">The rich text box used for displaying command results in the main window.</param>
     public MainWindowViewModel(PowerShellService powerShellService, CommandHistory commandHistory,
         Action closeWindowAction, RichTextBox commandResultRichTextBox)
@@ -330,10 +328,10 @@ public class MainWindowViewModel
     }
 
     /// <summary>
-    /// Adds a line of text with specified formatting to the <see cref="CommandResultRichTextBox"/>
+    /// Adds a line of text with a specified color scheme to the command result <see cref="RichTextBox"/>
     /// </summary>
-    /// <param name="text">The text to add to the result display</param>
-    /// <param name="textBoxBrushes">The brushes used to format the foreground and background of the text</param>
+    /// <param name="text">The line of text to be added</param>
+    /// <param name="colorScheme">The color scheme applied to the foreground and background</param>
     private void CommandResultAddLine(string text, ColorScheme colorScheme)
     {
         ArgumentNullException.ThrowIfNull(text);

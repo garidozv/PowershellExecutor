@@ -3,11 +3,17 @@ using PowerShellExecutor.ViewModels;
 
 namespace PowerShellExecutor.CustomCmdlets;
 
+/// <summary>
+/// Represents a custom PowerShell cmdlet that enables writing text to the host application's output display
+/// </summary>
+/// <remarks>
+/// This cmdlet interacts with the <see cref="ViewModels.MainWindowViewModel"/> to invoke its clear mechanism for host content
+/// </remarks>
 [Cmdlet(VerbsCommunications.Write, "Host")]
 public class WriteHostCmdlet : PSCmdlet
 {
-    private MainWindowViewModel _mainWindowViewModel =>
-        SessionState.PSVariable.Get(nameof(MainWindowViewModel)).Value as MainWindowViewModel;
+    private MainWindowViewModel? MainWindowViewModel =>
+        SessionState.PSVariable.Get(nameof(ViewModels.MainWindowViewModel)).Value as MainWindowViewModel;
     
     [Parameter(Mandatory = true, Position = 0, ValueFromPipeline = true, ValueFromRemainingArguments = true)]
     public object[] Object { get; set; }
@@ -32,10 +38,10 @@ public class WriteHostCmdlet : PSCmdlet
 
     protected override void ProcessRecord()
     {
-        if (_mainWindowViewModel is null)
-            throw new InvalidOperationException($"A reference to the {nameof(MainWindowViewModel)} has not been set");
+        if (MainWindowViewModel is null)
+            throw new InvalidOperationException($"A reference to the {nameof(ViewModels.MainWindowViewModel)} has not been set");
 
-        _mainWindowViewModel.WriteHost(Object, ForegroundColor, BackgroundColor, Separator, NoNewline.IsPresent);
+        MainWindowViewModel.WriteHost(Object, ForegroundColor, BackgroundColor, Separator, NoNewline.IsPresent);
     }
 }
 
