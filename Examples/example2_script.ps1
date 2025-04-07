@@ -1,5 +1,3 @@
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-
 Write-Error -Message "Error Stream: An error occurred!"
 
 "Output Stream: Processing..."
