@@ -121,7 +121,7 @@ public class MainWindowViewModel
             text += Environment.NewLine;
     
         CommandResultAddLine(text, new ColorScheme(foregroundColorValue, backgroundColorValue));
-        _commandResultDisplayHandled = true;
+        //_commandResultDisplayHandled = true;
     }
     
     
@@ -341,11 +341,9 @@ public class MainWindowViewModel
         _commandResultRichTextBox.Dispatcher.Invoke(() =>
         {
             if (_commandResultRichTextBox.Document is null) return;
-
-            _commandResultRichTextBox.Document.Blocks.Clear();
             
-            if (executionResult.CommandResults is not null)
-                CommandResultAddLine(executionResult.CommandResults.ToItemListString(), CommandOutputColors.Default);
+            if (executionResult.CommandResult is not null)
+                CommandResultAddLine(executionResult.CommandResult.ToSingleLineString(), CommandOutputColors.Default);
             if (executionResult.ParseErrors is not null)
                 CommandResultAddLine(executionResult.ParseErrors.ToItemListString(), CommandOutputColors.Error);
             if (executionResult.Errors is not null)

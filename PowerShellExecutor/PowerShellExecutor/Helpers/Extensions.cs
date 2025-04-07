@@ -18,7 +18,25 @@ public static class Extensions
         {
             strBuilder.Append(linePrefix).AppendLine(item.ToString());
         }
-        if (strBuilder.Length > 0) strBuilder.Remove(strBuilder.Length - Environment.NewLine.Length, Environment.NewLine.Length);
+        if (strBuilder.Length >= Environment.NewLine.Length) 
+            strBuilder.Remove(strBuilder.Length - Environment.NewLine.Length, Environment.NewLine.Length);
+        
+        return strBuilder.ToString();
+    }
+    
+
+    /// <summary>
+    /// Converts an object to its string representation and removes the trailing new line if there is one
+    /// </summary>
+    /// <param name="obj">The object to be converted to a string</param>
+    /// <param name="linePrefix">An optional prefix to prepend to the string. Default is <c>null</c>.</param>
+    /// <returns>The string representation of the object without a trailing newline</returns>
+    public static string ToSingleLineString(this object obj, string? linePrefix = null)
+    {
+        var strBuilder = new StringBuilder();
+        strBuilder.Append(obj);
+        if (strBuilder.Length >= Environment.NewLine.Length)
+            strBuilder.Remove(strBuilder.Length - Environment.NewLine.Length, Environment.NewLine.Length);
         
         return strBuilder.ToString();
     }

@@ -142,7 +142,6 @@
         <RichTextBox Grid.Row="2" Name="CommandResultRichTextBox"
                  Style="{StaticResource RichTextBoxPowerShellStyle}"
                  IsReadOnly="True"
-                 VerticalScrollBarVisibility="Auto">
-        </RichTextBox>
+                 VerticalScrollBarVisibility="Auto"/>
     </Grid>
 </Window>

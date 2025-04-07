@@ -143,12 +143,13 @@ public class PowerShellService : IDisposable
         {
             _powerShell.Streams.ClearStreams();
             _powerShell.Commands.Clear();
-            
-            _powerShell.AddScript(script);
+
+            _powerShell.AddScript(script)
+                .AddCommand("out-string");
             var invocationResult = _powerShell.Invoke();
 
             result.IsSuccessful = !_powerShell.HadErrors;
-            result.CommandResults = invocationResult.Count > 0 ? invocationResult : null;
+            result.CommandResult = invocationResult.Count > 0 ? invocationResult[0] : null;
             result.Errors = _powerShell.Streams.Error.Count > 0 ? _powerShell.Streams.Error : null;
             result.VerboseMessages = _powerShell.Streams.Verbose.Count > 0 ? _powerShell.Streams.Verbose : null;
             result.Warnings = _powerShell.Streams.Warning.Count > 0 ? _powerShell.Streams.Warning : null;
@@ -188,7 +189,7 @@ public class PowerShellService : IDisposable
         var script = $"get-command {name} | where {{$_.CommandType -eq 'Function' -or $_.CommandType -eq 'Cmdlet'}}";
         var res = ExecuteScript(script);
         
-        return res.IsSuccessful && (res.CommandResults?.Any() ?? false);
+        return res.IsSuccessful && (res.CommandResult is not null);
     }
 
     /// <summary>
@@ -204,6 +205,24 @@ public class PowerShellService : IDisposable
         
         var fullPath = Path.IsPathRooted(completion) ? completion : Path.Combine(WorkingDirectoryPath, completion);
         return Directory.Exists(fullPath);
+    }
+    
+    /// <summary>
+    /// Converts a collection of <see cref="PSObject"/> instances into a single string representation.
+    /// Executes the "Out-String" PowerShell command on the provided objects to generate their string output.
+    /// </summary>
+    /// <param name="obj">The collection of <see cref="PSObject"/> to convert to a string.</param>
+    /// <returns>A string representation of the provided collection. If the result is empty, returns an empty string.</returns>
+    public string GetStringRepresentation(IEnumerable<PSObject> obj)
+    {
+        _powerShell.Commands.Clear();
+        _powerShell.Streams.ClearStreams();
+
+        var res = _powerShell.AddCommand("Out-String")
+            .AddParameter("InputObject", obj)
+            .Invoke();
+        
+        return res.Count > 0 ? res[0].ToString() : string.Empty;
     }
     
     /// <summary>

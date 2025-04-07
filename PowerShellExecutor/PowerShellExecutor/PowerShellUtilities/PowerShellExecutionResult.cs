@@ -18,7 +18,7 @@ public class PowerShellExecutionResult
     /// <summary>
     /// The objects returned from the executed script
     /// </summary>
-    public IEnumerable<PSObject>? CommandResults { get; set; }
+    public PSObject? CommandResult { get; set; }
 
     /// <summary>
     /// Error records captured during the execution of the script
