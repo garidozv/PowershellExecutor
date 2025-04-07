@@ -27,7 +27,6 @@ public class MainWindowViewModel
         public static readonly ColorScheme Information = new(Colors.White, Colors.Transparent);
     }
     
-    private const char SecureStringMaskChar = '*';
     private static readonly Color DefaultColor = Colors.White;
     
     private readonly PowerShellService _powerShellService;
@@ -42,11 +41,9 @@ public class MainWindowViewModel
     private readonly AutoResetEvent _readTextBoxSubmitted = new(false);
     private Task<PSObject?>? _commandExecutionTask;
     
-    private readonly Action _focusInputTextBoxAction;
-    private readonly Action _focuReadTextBoxAction;
     private readonly Action _closeWindowAction;
     
-    private RichTextBox _commandResultRichTextBox;
+    private readonly RichTextBox _commandResultRichTextBox;
     
     /// <summary>
     /// Gets the bindings instance that contains properties and commands for data binding in the main window ViewModel
@@ -63,13 +60,10 @@ public class MainWindowViewModel
     /// <param name="focuReadTextBoxAction">An action to set focus on the read-only text box displaying command results.</param>
     /// <param name="commandResultRichTextBox">The rich text box used for displaying command results in the main window.</param>
     public MainWindowViewModel(PowerShellService powerShellService, CommandHistory commandHistory,
-        Action closeWindowAction, Action focusInputTextBoxAction, Action focuReadTextBoxAction,
-        RichTextBox commandResultRichTextBox)
+        Action closeWindowAction, RichTextBox commandResultRichTextBox)
     {
         _powerShellService = powerShellService;
         _commandHistory = commandHistory;
-        _focusInputTextBoxAction = focusInputTextBoxAction;
-        _focuReadTextBoxAction = focuReadTextBoxAction;
         _closeWindowAction = closeWindowAction;
         _commandResultRichTextBox = commandResultRichTextBox;
 
@@ -162,7 +156,6 @@ public class MainWindowViewModel
         Bindings.ReadText = string.Empty;
         Bindings.PromptText = prompt ?? string.Empty;
         Bindings.ReadTextBoxVisibility = Visibility.Visible;
-        _focuReadTextBoxAction();
         
         _readTextBoxSubmitted.WaitOne();
         
@@ -170,7 +163,6 @@ public class MainWindowViewModel
         
         Bindings.ReadTextBoxVisibility = Visibility.Collapsed;
         Bindings.IsInputTextBoxReadOnly = false;
-        _focusInputTextBoxAction();
         
         return res;
     }

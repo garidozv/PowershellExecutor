@@ -124,8 +124,9 @@
                      AcceptsReturn="True"
                      AcceptsTab="True"
                      Text="{Binding ReadText, 
-                    Mode=TwoWay, 
-                    UpdateSourceTrigger=PropertyChanged}">
+                        Mode=TwoWay, 
+                        UpdateSourceTrigger=PropertyChanged}"
+                     IsVisibleChanged="ReadTextBox_OnIsVisibleChanged">
             
                 <TextBox.InputBindings>
                     <KeyBinding 

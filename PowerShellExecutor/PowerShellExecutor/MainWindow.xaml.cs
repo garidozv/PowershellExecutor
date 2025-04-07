@@ -18,17 +18,32 @@ public partial class MainWindow : Window
         
         _powerShellService = new PowerShellService();
         _viewModel = new MainWindowViewModel(_powerShellService, new CommandHistory(),
-            () => Dispatcher.Invoke(Close), () => Dispatcher.Invoke(() => CommandInputTextBox.Focus()),
-            () => Dispatcher.Invoke(() => ReadTextBox.Focus()), CommandResultRichTextBox);
+            () => Dispatcher.Invoke(Close), CommandResultRichTextBox);
         
         DataContext = _viewModel.Bindings;
         CommandInputTextBox.Focus();
     }
-
+    
     protected override async void OnClosed(EventArgs e)
     {
         await _viewModel.Cleanup();
         _powerShellService.Dispose();
         base.OnClosed(e);
+    }
+
+    /*
+     * This approach doesn't follow MVVM, but was the only way to make swapping
+     * focus between CommandInputTextBox and ReadTextBox work as intended
+     */
+    private void ReadTextBox_OnIsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        if (e.NewValue is true)
+        {
+            ReadTextBox.Focus();
+        }
+        else
+        {
+            CommandInputTextBox.Focus();
+        }
     }
 }
