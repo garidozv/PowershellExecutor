@@ -12,10 +12,9 @@ public static class Extensions
     /// <returns>A single-line string representation of the object without a trailing newline</returns>
     public static string ToSingleLineString(this object obj, string? linePrefix = null)
     {
-        var strBuilder = new StringBuilder();
-        strBuilder.Append(linePrefix).Append(obj);
+        ArgumentNullException.ThrowIfNull(obj);
         
-        var str = strBuilder.ToString();
+        var str = $"{linePrefix}{obj}";
         
         if (str.EndsWith(Environment.NewLine))
             str = str.Substring(0, str.Length - Environment.NewLine.Length);
@@ -35,11 +34,14 @@ public static class Extensions
     /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="startIndex"/> is out of bounds</exception>
     public static string ReplaceSegment(this string source, int startIndex, int length, string replacement)
     {
+        ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(replacement);
-        ArgumentOutOfRangeException.ThrowIfGreaterThan((uint)startIndex, (uint)source.Length, nameof(startIndex));
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual((uint)startIndex, (uint)source.Length, nameof(startIndex));
+        ArgumentOutOfRangeException.ThrowIfGreaterThan((uint)length, (uint)source.Length - (uint)startIndex, nameof(length));
 
         var builder = new StringBuilder(source.Length - length + replacement.Length);
-        builder.Append(source.AsSpan(0, startIndex))
+        builder
+            .Append(source.AsSpan(0, startIndex))
             .Append(replacement)
             .Append(source.AsSpan(startIndex + length));
 
