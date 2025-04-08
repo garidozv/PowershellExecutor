@@ -6,123 +6,110 @@ namespace PowerShellExecutor.Tests;
 
 public class CommandHistoryTests
 {
-    private static readonly IEnumerable<string> SampleCommands =
-    [
-        "cd", "ls | Select-Object Name", "Select-Object", "Get-Alias -Name clear", "dir" 
-    ];
+    private const string SingleCommand = "c";
+    private const string FirstCommand = "c1";
+    private const string SecondCommand = "c2";
+    private const string ThirdCommand = "c3";
     private readonly CommandHistory _commandHistory = new();
     
     [Fact]
-    public void AddCommand_NullCommand_ArgumentNullExceptionThrown()
+    public void AddCommand_NullCommand_ThrowsArgumentNullException()
     {
-        // Arrange
-        
-        // Act and Assert
         Assert.Throws<ArgumentNullException>(() => _commandHistory.AddCommand(null));
     }
-    
+
     [Fact]
-    public void AddCommand_EmptyCommand_NoCommandAdded()
+    public void AddCommand_EmptyCommand_CommandNotAdded()
     {
         // Arrange
-        var expectedCount = _commandHistory.Count;
+        var expectedCommandCount = _commandHistory.Count;
         
         // Act
         _commandHistory.AddCommand(string.Empty);
         
         // Assert
-        Assert.Equal(expectedCount, _commandHistory.Count);   
+        Assert.Equal(expectedCommandCount, _commandHistory.Count);
     }
-    
+
     [Fact]
     public void AddCommand_SubsequentDuplicateCommands_OnlyOneCommandAdded()
     {
         // Arrange
-        const string command = "c";
-        var expectedCount = _commandHistory.Count + 1;
+        var expectedCommandCount = _commandHistory.Count + 1;
         
         // Act
-        _commandHistory.AddCommand(command);
-        _commandHistory.AddCommand(command);
+        _commandHistory.AddCommand(SingleCommand);
+        _commandHistory.AddCommand(SingleCommand);
         
         // Assert
-        Assert.Equal(expectedCount, _commandHistory.Count);   
+        Assert.Equal(expectedCommandCount, _commandHistory.Count);
     }
-    
+
     [Fact]
     public void AddCommand_ValidCommand_CommandAdded()
     {
         // Arrange
-        const string command = "c";
-        var expectedCount = _commandHistory.Count + 1;
+        var expectedCommandCount = _commandHistory.Count + 1;
         
         // Act
-        _commandHistory.AddCommand(command);
+        _commandHistory.AddCommand(SingleCommand);
         
         // Assert
-        Assert.Equal(expectedCount, _commandHistory.Count);   
+        Assert.Equal(expectedCommandCount, _commandHistory.Count);
     }
-    
+
     [Fact]
-    public void AddCommand_MoveToStartAfterAdd_NewestCommandReturned()
+    public void AddCommand_MoveToStart_FirstCommandReturned()
     {
         // Arrange
-        string[] commands = ["c1", "c2"];
-        
+
         // Act
-        _commandHistory.AddCommand(commands[0]);
+        _commandHistory.AddCommand(FirstCommand);
         _commandHistory.NextCommand();
-        _commandHistory.AddCommand(commands[1]);
-        var returned = _commandHistory.NextCommand();
-        
+        _commandHistory.AddCommand(SecondCommand);
+        var returnedCommand = _commandHistory.NextCommand();
+
         // Assert
-        Assert.Equal(commands[1], returned);
+        Assert.Equal(SecondCommand, returnedCommand);
     }
-    
+
     [Fact]
-    public void MoveToStart_NotAtTheStart_FirstCommandReturned()
+    public void MoveToStart_HistoryNotEmpty_FirstCommandReturned()
     {
         // Arrange
-        const string command = "c";
         
         // Act
-        _commandHistory.AddCommand(command);
+        _commandHistory.AddCommand(SingleCommand);
         _commandHistory.NextCommand();
         _commandHistory.MoveToStart();
-        var returned = _commandHistory.NextCommand();
-        
+        var returnedCommand = _commandHistory.NextCommand();
+
         // Assert
-        Assert.Equal(command, returned);
+        Assert.Equal(SingleCommand, returnedCommand);
     }
-    
+
     [Fact]
     public void NextCommand_EmptyHistory_NullReturned()
     {
-        // Arrange
-        
-        // Act
-        var returned = _commandHistory.NextCommand();
-        
-        // Assert
-        Assert.Null(returned);   
+        Assert.Null(_commandHistory.NextCommand());
     }
-    
+
+    /// <summary>
+    /// All commands have been read, we are at the end of the history
+    /// </summary>
     [Fact]
     public void NextCommand_EndReached_NullReturned()
     {
         // Arrange
-        const string command = "test";
         
         // Act
-        _commandHistory.AddCommand(command);
-        // Move to end
+        _commandHistory.AddCommand(SingleCommand);
         _commandHistory.NextCommand();
-        var returned = _commandHistory.NextCommand();
         
         // Assert
-        Assert.Null(returned);   
+        Assert.Null(_commandHistory.NextCommand());
     }
-    
+
     /// <summary>
     /// At least one command has been read, and at least one command is left
     /// </summary>
@@ -130,67 +117,55 @@ public class CommandHistoryTests
     public void NextCommand_InTheMiddle_NextCommandReturned()
     {
         // Arrange
-        string[] commands = ["c1", "c2", "c3"];
         
         // Act
-        _commandHistory.AddCommand(commands[0]);
-        _commandHistory.AddCommand(commands[1]);
-        _commandHistory.AddCommand(commands[2]);
-        _commandHistory.NextCommand(); // read command [2]
-        _commandHistory.NextCommand(); // read command [1]
-        var returned = _commandHistory.NextCommand();
-        
+        _commandHistory.AddCommand(FirstCommand);
+        _commandHistory.AddCommand(SecondCommand);
+        _commandHistory.AddCommand(ThirdCommand);
+        _commandHistory.NextCommand(); // Read Third command
+        _commandHistory.NextCommand(); // Read Second command
+        var returnedCommand = _commandHistory.NextCommand(); // Next command should be First command
+
         // Assert
-        // Next command relative to the last read command [1] is command [0]
-        Assert.Equal(commands[0], returned);   
+        Assert.Equal(FirstCommand, returnedCommand);
     }
-    
+
     /// <summary>
     /// No commands have been read yet, we are at the start of history
     /// </summary>
     [Fact]
-    public void NextCommand_AtTheStart_FirstCommandReturned()
+    public void NextCommand_AtStart_FirstCommandReturned()
     {
         // Arrange
-        const string command = "c1";
         
         // Act
-        _commandHistory.AddCommand(command);
-        var returned = _commandHistory.NextCommand();
+        _commandHistory.AddCommand(FirstCommand);
         
         // Assert
-        Assert.Equal(command, returned);   
+        Assert.Equal(FirstCommand, _commandHistory.NextCommand());
     }
-    
+
     [Fact]
     public void PreviousCommand_EmptyHistory_NullReturned()
     {
-        // Arrange
-        
-        // Act
-        var returned = _commandHistory.PrevCommand();
-        
-        // Assert
-        Assert.Null(returned);   
+        Assert.Null(_commandHistory.PrevCommand());
     }
-    
+
     /// <summary>
     /// No commands have been read yet, we are at the start of the history
     /// </summary>
     [Fact]
-    public void PreviousCommand_AtTheStart_NullReturned()
+    public void PreviousCommand_AtStart_NullReturned()
     {
         // Arrange
-        const string command = "c";
         
         // Act
-        _commandHistory.AddCommand(command);
-        var returned = _commandHistory.PrevCommand();
+        _commandHistory.AddCommand(SingleCommand);
         
         // Assert
-        Assert.Null(returned);   
+        Assert.Null(_commandHistory.PrevCommand());
     }
-    
+
     /// <summary>
     /// All commands have been read, we are at the end of the history
     /// </summary>
@@ -198,34 +173,34 @@ public class CommandHistoryTests
     public void PreviousCommand_EndReached_LastCommandReturned()
     {
         // Arrange
-        const string command = "c";
         
         // Act
-        _commandHistory.AddCommand(command);
+        _commandHistory.AddCommand(SingleCommand);
         _commandHistory.NextCommand();
         _commandHistory.NextCommand();
-        var returned = _commandHistory.PrevCommand();
         
         // Assert
-        Assert.Equal(command, returned);   
+        Assert.Equal(SingleCommand, _commandHistory.PrevCommand());
     }
-    
+
+    /// <summary>
+    /// At least one command has been read, and at least one command is left
+    /// </summary>
     [Fact]
-    public void PreviousCommand_InTheMiddle_PreviousCommandReturned()
+    public void PreviousCommand_InTheMiddle_ReturnsPreviousCommand()
     {
         // Arrange
-        string[] commands = ["c1", "c2", "c3"];
         
         // Act
-        _commandHistory.AddCommand(commands[0]);
-        _commandHistory.AddCommand(commands[1]);
-        _commandHistory.AddCommand(commands[2]);
-        _commandHistory.NextCommand(); // read command [2]
-        _commandHistory.NextCommand(); // read command [1]
-        var returned = _commandHistory.PrevCommand();
+        _commandHistory.AddCommand(FirstCommand);
+        _commandHistory.AddCommand(SecondCommand);
+        _commandHistory.AddCommand(ThirdCommand);
         
+        _commandHistory.NextCommand(); // Read Third command
+        _commandHistory.NextCommand(); // Read Second command
+        var returnedCommand = _commandHistory.PrevCommand(); // Previous command be Third command
+
         // Assert
-        // Previous command relative to the last read command [1] is command [2]
-        Assert.Equal(commands[2], returned);   
+        Assert.Equal(ThirdCommand, returnedCommand);
     }
 }
