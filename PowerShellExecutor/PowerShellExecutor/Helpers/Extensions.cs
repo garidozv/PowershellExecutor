@@ -36,7 +36,7 @@ public static class Extensions
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(replacement);
-        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual((uint)startIndex, (uint)source.Length, nameof(startIndex));
+        ArgumentOutOfRangeException.ThrowIfGreaterThan((uint)startIndex, (uint)source.Length, nameof(startIndex));
         ArgumentOutOfRangeException.ThrowIfGreaterThan((uint)length, (uint)source.Length - (uint)startIndex, nameof(length));
 
         var builder = new StringBuilder(source.Length - length + replacement.Length);

@@ -97,7 +97,7 @@ public class ExtensionsTests
     }
     
     [Fact]
-    public void ReplaceSegment_StartIndexGreaterOrEqualToSourceLength_ThrowsArgumentOutOfRangeException()
+    public void ReplaceSegment_StartIndexGreaterThanSourceLength_ThrowsArgumentOutOfRangeException()
     {
         // Arrange
         const string source = "source", replacement = "replacement";
@@ -105,7 +105,7 @@ public class ExtensionsTests
         // Act
         
         // Assert
-        Assert.Throws<ArgumentOutOfRangeException>(() => source.ReplaceSegment(source.Length, 0, replacement));
+        Assert.Throws<ArgumentOutOfRangeException>(() => source.ReplaceSegment(source.Length + 1, 0, replacement));
     }
     
     [Fact]
