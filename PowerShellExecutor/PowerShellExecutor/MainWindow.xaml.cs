@@ -20,8 +20,8 @@ public partial class MainWindow : Window
         var powerShellService = new PowerShellService(_powerShellWrapper);
         _viewModel = new MainWindowViewModel(powerShellService, new CommandHistory(),
             () => Dispatcher.Invoke(Close));
-        
-        DataContext = _viewModel.Bindings;
+
+        DataContext = _viewModel;
         CommandInputTextBox.Focus();
     }
     

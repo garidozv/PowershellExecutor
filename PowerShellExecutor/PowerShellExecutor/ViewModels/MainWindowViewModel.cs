@@ -2,8 +2,6 @@ using System.IO;
 using System.Management.Automation;
 using System.Windows.Media;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Documents;
 using CommunityToolkit.Mvvm.Input;
 using PowerShellExecutor.CustomCmdlets;
 using PowerShellExecutor.Helpers;
@@ -14,7 +12,7 @@ namespace PowerShellExecutor.ViewModels;
 /// <summary>
 /// ViewModel for the main window, handling command input and result display
 /// </summary>
-public class MainWindowViewModel
+public partial class MainWindowViewModel
 {
     private record ColorScheme(Color Foreground, Color Background);
     private static class CommandOutputColors
@@ -49,25 +47,22 @@ public class MainWindowViewModel
     /// <param name="powerShellService">The service for working with PowerShell</param>
     /// <param name="commandHistory">The <see cref="CommandHistory"/> object used for PowerShell command history</param>
     /// <param name="closeWindowAction">An action to close the main application window.</param>
-    /// <param name="commandResultRichTextBox">The rich text box used for displaying command results in the main window.</param>
     public MainWindowViewModel(PowerShellService powerShellService, CommandHistory commandHistory,
         Action closeWindowAction)
     {
         _powerShellService = powerShellService;
         _commandHistory = commandHistory;
         _closeWindowAction = closeWindowAction;
-
-        Bindings = new MainWindowViewModelBindings()
-        {
-            CommandInputEnterKeyCommand = new AsyncRelayCommand(ExecuteCommand),
-            ReadTextBoxEnterKeyCommand = new RelayCommand(SubmitReadTextBox),
-            CommandInputUpKeyCommand = new RelayCommand(SetCommandToHistoryNext),
-            CommandInputDownKeyCommand = new RelayCommand(SetCommandToHistoryPrev),
-            CommandInputEscapeKeyCommand = new RelayCommand(ResetCommandInput),
-            CommandInputTabKeyCommand = new RelayCommand(GetNextCompletion),
-            InputTextChangedCommand = new RelayCommand(OnInputTextChanged),
-            ReadTextBoxControlCCommand = new RelayCommand(StopReadHost)
-        };
+        
+        CommandInputEnterKeyCommand = new AsyncRelayCommand(ExecuteCommand);
+        ReadTextBoxEnterKeyCommand = new RelayCommand(SubmitReadTextBox);
+        CommandInputUpKeyCommand = new RelayCommand(SetCommandToHistoryNext);
+        CommandInputDownKeyCommand = new RelayCommand(SetCommandToHistoryPrev);
+        CommandInputEscapeKeyCommand = new RelayCommand(ResetCommandInput);
+        CommandInputTabKeyCommand = new RelayCommand(GetNextCompletion);
+        InputTextChangedCommand = new RelayCommand(OnInputTextChanged);
+        ReadTextBoxControlCCommand = new RelayCommand(StopReadHost);
+        
         
         _powerShellService.RegisterCustomCmdlet<WriteHostCmdlet>();
         _powerShellService.RegisterCustomCmdlet<ClearHostCmdlet>();
@@ -82,13 +77,8 @@ public class MainWindowViewModel
         _powerShellService.SubscribeToInformationStream(HandleInformationStreamInput);
 
         // Set initial working directory path
-        Bindings.WorkingDirectoryPath = _powerShellService.WorkingDirectoryPath;
+        WorkingDirectoryPath = _powerShellService.WorkingDirectoryPath;
     }
-    
-    /// <summary>
-    /// Gets the bindings instance that contains properties and commands for data binding in the main window ViewModel
-    /// </summary>
-    public MainWindowViewModelBindings Bindings { get; }
 
     /// <summary>
     /// Writes the specified objects to the host output using the specified colors and format options
@@ -112,7 +102,7 @@ public class MainWindowViewModel
     
         // noNewLine is ignored since the way output is displayed has a new line by default
         
-        Bindings.AddTextToResultDocument(text, foregroundColorValue, backgroundColorValue);
+        AddTextToResultDocument(text, foregroundColorValue, backgroundColorValue);
     }
 
     /// <summary>
@@ -122,17 +112,17 @@ public class MainWindowViewModel
     /// <remarks>This is a blocking method</remarks>
     public string ReadHost(string? prompt, bool asSecureString)
     {
-        Bindings.IsInputTextBoxReadOnly = true;
-        Bindings.ReadText = string.Empty;
-        Bindings.PromptText = prompt ?? string.Empty;
-        Bindings.ReadTextBoxVisibility = Visibility.Visible;
+        IsInputTextBoxReadOnly = true;
+        ReadText = string.Empty;
+        PromptText = prompt ?? string.Empty;
+        ReadTextBoxVisibility = Visibility.Visible;
         
         _readTextBoxSubmitted.WaitOne();
         
-        var res = Bindings.ReadText;
+        var res = ReadText;
         
-        Bindings.ReadTextBoxVisibility = Visibility.Collapsed;
-        Bindings.IsInputTextBoxReadOnly = false;
+        ReadTextBoxVisibility = Visibility.Collapsed;
+        IsInputTextBoxReadOnly = false;
         
         return res;
     }
@@ -142,7 +132,7 @@ public class MainWindowViewModel
     /// </summary>
     public void ClearHost()
     {
-        Bindings.ClearResultDocument();
+        ClearResultDocument();
         _commandResultDisplayHandled = true;
     }
 
@@ -168,16 +158,16 @@ public class MainWindowViewModel
     /// </summary>
     private async Task ExecuteCommand(CancellationToken cancellationToken)
     {
-        _commandHistory.AddCommand(Bindings.CommandInput);
+        _commandHistory.AddCommand(CommandInput);
 
-        Bindings.ClearResultDocument();
+        ClearResultDocument();
 
-        _commandExecutionTask = Task.Run(() => _powerShellService.ExecuteScript(Bindings.CommandInput, true));
+        _commandExecutionTask = Task.Run(() => _powerShellService.ExecuteScript(CommandInput, true));
         var executionResult = await _commandExecutionTask;
         _commandExecutionTask = null;
         
-        Bindings.WorkingDirectoryPath = _powerShellService.WorkingDirectoryPath;
-        Bindings.CommandInput = string.Empty;
+        WorkingDirectoryPath = _powerShellService.WorkingDirectoryPath;
+        CommandInput = string.Empty;
 
         if (_commandExecutionStopped)
         {
@@ -192,7 +182,7 @@ public class MainWindowViewModel
         }
 
         if (executionResult is not null)
-            Bindings.AddTextToResultDocument(executionResult.FirstOrDefault()?.ToSingleLineString() ?? string.Empty,
+            AddTextToResultDocument(executionResult.FirstOrDefault()?.ToSingleLineString() ?? string.Empty,
                 CommandOutputColors.Default.Foreground, CommandOutputColors.Default.Background);
     }
 
@@ -210,11 +200,11 @@ public class MainWindowViewModel
          * So we have to do one additional call to PrevCommand to get the right
          * command
          */
-        if (prevCommand is not null && prevCommand.Equals(Bindings.CommandInput))
+        if (prevCommand is not null && prevCommand.Equals(CommandInput))
             prevCommand = _commandHistory.PrevCommand();
         
-        Bindings.CommandInput = prevCommand ?? string.Empty;
-        Bindings.CommandInputCaretIndex = Bindings.CommandInput.Length;
+        CommandInput = prevCommand ?? string.Empty;
+        CommandInputCaretIndex = CommandInput.Length;
     }
     
     /// <summary>
@@ -227,8 +217,8 @@ public class MainWindowViewModel
         
         if (nextCommand is not null)
         {
-            Bindings.CommandInput = nextCommand;
-            Bindings.CommandInputCaretIndex = Bindings.CommandInput.Length;
+            CommandInput = nextCommand;
+            CommandInputCaretIndex = CommandInput.Length;
         }
     }
 
@@ -239,7 +229,7 @@ public class MainWindowViewModel
     private void ResetCommandInput()
     {
         _commandHistory.MoveToStart();
-        Bindings.CommandInput = string.Empty;
+        CommandInput = string.Empty;
     }
     
     /// <summary>
@@ -250,8 +240,8 @@ public class MainWindowViewModel
         if (_currentCompletion is null) 
         {
             _currentCompletion = _powerShellService.GetCommandCompletions(
-                Bindings.CommandInput, Bindings.CommandInputCaretIndex);
-            _originalCompletionInput = Bindings.CommandInput;
+                CommandInput, CommandInputCaretIndex);
+            _originalCompletionInput = CommandInput;
         }
         
         if (_currentCompletion.CompletionMatches.Count == 0) return;
@@ -273,11 +263,11 @@ public class MainWindowViewModel
             !completionText.EndsWith(Path.DirectorySeparatorChar))
             completionText += Path.DirectorySeparatorChar;
         
-        Bindings.CommandInput = _originalCompletionInput.ReplaceSegment(
+        CommandInput = _originalCompletionInput.ReplaceSegment(
             _currentCompletion.ReplacementIndex, 
             _currentCompletion.ReplacementLength,
             completionText);
-        Bindings.CommandInputCaretIndex = _currentCompletion.ReplacementIndex + completionText.Length;
+        CommandInputCaretIndex = _currentCompletion.ReplacementIndex + completionText.Length;
 
         /*
          * If there is only one completion match, reset the completions.
@@ -333,7 +323,7 @@ public class MainWindowViewModel
     /// The <see cref="ErrorRecord"/> object representing the error details from the PowerShell execution
     /// </param>
     private void HandleErrorStreamInput(ErrorRecord errorRecord) =>
-        Bindings.AddTextToResultDocument(errorRecord.ToSingleLineString(), 
+        AddTextToResultDocument(errorRecord.ToSingleLineString(), 
             CommandOutputColors.Error.Foreground, CommandOutputColors.Error.Background);
 
     /// <summary>
@@ -343,7 +333,7 @@ public class MainWindowViewModel
     /// The <see cref="WarningRecord"/> object representing the error details from the PowerShell execution
     /// </param>
     private void HandleWarningStreamInput(WarningRecord warningRecord) =>
-        Bindings.AddTextToResultDocument(warningRecord.ToSingleLineString("WARNING: "), 
+        AddTextToResultDocument(warningRecord.ToSingleLineString("WARNING: "), 
             CommandOutputColors.Warning.Foreground, CommandOutputColors.Warning.Background);
 
     /// <summary>
@@ -353,7 +343,7 @@ public class MainWindowViewModel
     /// The <see cref="VerboseRecord"/> object representing the error details from the PowerShell execution
     /// </param>
     private void HandleVerboseStreamInput(VerboseRecord verboseRecord) =>
-        Bindings.AddTextToResultDocument(verboseRecord.ToSingleLineString("VERBOSE: "), 
+        AddTextToResultDocument(verboseRecord.ToSingleLineString("VERBOSE: "), 
             CommandOutputColors.Verbose.Foreground, CommandOutputColors.Verbose.Background);
 
     /// <summary>
@@ -363,7 +353,7 @@ public class MainWindowViewModel
     /// The <see cref="DebugRecord"/> object representing the error details from the PowerShell execution
     /// </param>
     private void HandleDebugStreamInput(DebugRecord debugRecord) =>
-        Bindings.AddTextToResultDocument(debugRecord.ToSingleLineString("DEBUG: "), 
+        AddTextToResultDocument(debugRecord.ToSingleLineString("DEBUG: "), 
             CommandOutputColors.Debug.Foreground, CommandOutputColors.Debug.Background);
     
     /// <summary>
@@ -373,7 +363,7 @@ public class MainWindowViewModel
     /// The <see cref="InformationRecord"/> object representing the error details from the PowerShell execution
     /// </param>
     private void HandleInformationStreamInput(InformationRecord informationRecord) =>
-        Bindings.AddTextToResultDocument(informationRecord.ToSingleLineString(), 
+        AddTextToResultDocument(informationRecord.ToSingleLineString(), 
             CommandOutputColors.Information.Foreground, CommandOutputColors.Information.Background);
 
     /// <summary>

@@ -8,7 +8,10 @@ using System.Windows.Threading;
 
 namespace PowerShellExecutor.ViewModels;
 
-public class MainWindowViewModelBindings  : INotifyPropertyChanged
+/// <summary>
+/// Partial class containing all bindable properties and commands for the <see cref="MainWindowViewModel"/>
+/// </summary>
+public partial class MainWindowViewModel  : INotifyPropertyChanged
 {
     private string _commandInput = string.Empty;
     private string _readText = string.Empty;
@@ -17,7 +20,7 @@ public class MainWindowViewModelBindings  : INotifyPropertyChanged
     private int _commandInputCaretIndex = 0;
     private bool _isInputTextBoxReadOnly = false;
     private Visibility _readTextBoxVisibility = Visibility.Collapsed;
-    private FlowDocument _resultDocument = new FlowDocument();
+    private readonly FlowDocument _resultDocument = new FlowDocument();
 
     /// <summary>
     /// Gets the command that triggers when the Enter key is pressed on CommandInputTextBox
