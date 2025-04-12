@@ -54,20 +54,25 @@ public class PowerShellService
     /// Executes the given PowerShell script and returns the execution result
     /// </summary>
     /// <param name="script">The PowerShell script to be executed</param>
+    /// <param name="outputAsString">
+    /// If <c>true</c>, appends <c>| Out-String</c> to the script before execution to return a string representation of the output.
+    /// If <c>false</c>, returns the raw result of the script.
+    /// </param>
     /// <returns>The string representation of the script result, or <c>null</c> if there were no results</returns>
-    public PSObject? ExecuteScript(string script)
+    public IEnumerable<PSObject>? ExecuteScript(string script, bool outputAsString = false)
     {
         ArgumentNullException.ThrowIfNull(script);
         
         try
         {
             _powerShell.Clear();
-
-            _powerShell.AddScript(script)
-                .AddCommand("out-string");
+            _powerShell.AddScript(script);
+            
+            if (outputAsString)
+                _powerShell.AddCommand("out-string");
             
             var invocationResult = _powerShell.Invoke();
-            return invocationResult.Count > 0 ? invocationResult[0] : null;
+            return invocationResult.Count > 0 ? invocationResult : null;
         }
         catch (ParseException e)
         {

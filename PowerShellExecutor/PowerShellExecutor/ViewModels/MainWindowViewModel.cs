@@ -39,7 +39,7 @@ public class MainWindowViewModel
     private bool _commandExecutionStopped;
     
     private readonly AutoResetEvent _readTextBoxSubmitted = new(false);
-    private Task<PSObject?>? _commandExecutionTask;
+    private Task<IEnumerable<PSObject>?>? _commandExecutionTask;
     
     private readonly Action _closeWindowAction;
     private readonly RichTextBox _commandResultRichTextBox;
@@ -174,7 +174,7 @@ public class MainWindowViewModel
 
         CommandResultClear();
 
-        _commandExecutionTask = Task.Run(() => _powerShellService.ExecuteScript(Bindings.CommandInput));
+        _commandExecutionTask = Task.Run(() => _powerShellService.ExecuteScript(Bindings.CommandInput, true));
         var executionResult = await _commandExecutionTask;
         _commandExecutionTask = null;
         
@@ -194,7 +194,7 @@ public class MainWindowViewModel
         }
 
         if (executionResult is not null)
-            CommandResultAddLine(executionResult.ToSingleLineString(), CommandOutputColors.Default);
+            CommandResultAddLine(executionResult.FirstOrDefault()?.ToSingleLineString() ?? string.Empty, CommandOutputColors.Default);
     }
 
     /// <summary>
@@ -336,6 +336,8 @@ public class MainWindowViewModel
     {
         ArgumentNullException.ThrowIfNull(text);
         ArgumentNullException.ThrowIfNull(colorScheme);
+
+        if (text.Equals(string.Empty)) return;
     
         _commandResultRichTextBox.Dispatcher.Invoke(() =>
         {

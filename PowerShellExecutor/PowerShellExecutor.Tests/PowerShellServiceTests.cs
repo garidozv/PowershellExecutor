@@ -26,16 +26,17 @@ public class PowerShellServiceTests
     private static ErrorRecord CreateErrorRecord(ParseError error) =>
         new(new Exception(error.Message), "Parse error", ErrorCategory.ParserError, null);
     
-    private void SetupCommonMockMethods()
+    private void SetupExecuteScriptCommonMockMethods(bool asStringOutput = true)
     {
         _powerShellWrapperMock
             .Setup(ps => ps.AddScript(Script))
             .Returns(_powerShellWrapperMock.Object);
-        _powerShellWrapperMock
-            .Setup(ps =>
-                ps.AddCommand(It.Is<string>(cmd =>
-                    string.Equals(cmd, OutStringCommand, StringComparison.OrdinalIgnoreCase))))
-            .Returns(_powerShellWrapperMock.Object);
+        if (asStringOutput) 
+            _powerShellWrapperMock
+                .Setup(ps =>
+                    ps.AddCommand(It.Is<string>(cmd =>
+                        string.Equals(cmd, OutStringCommand, StringComparison.OrdinalIgnoreCase))))
+                .Returns(_powerShellWrapperMock.Object);
         _powerShellWrapperMock
             .Setup(ps => ps.Clear())
             .Verifiable();
@@ -48,20 +49,45 @@ public class PowerShellServiceTests
     }
 
     [Fact]
-    public void ExecuteScript_OneElementResult_ResultReturned()
+    public void ExecuteScript_StringObjectResult_ResultReturned()
     {
         // Arrange
         var expectedResult = new PSObject("result");
         var resultCollection = new Collection<PSObject> { expectedResult };
 
-        SetupCommonMockMethods();
+        SetupExecuteScriptCommonMockMethods();
         _powerShellWrapperMock.Setup(ps => ps.Invoke()).Returns(resultCollection);
+
+        // Act
+        var result = _powerShellService.ExecuteScript(Script, true);
+
+        // Assert
+        _powerShellWrapperMock.Verify(ps => ps.Clear(), Times.Once);
+        Assert.NotNull(result);
+        var firstElement = result.First();
+        Assert.IsType<string>(firstElement.BaseObject);
+        Assert.Equal(expectedResult, firstElement);
+    }
+    
+    [Fact]
+    public void ExecuteScript_NonStringObjectResult_ResultReturned()
+    {
+        // Arrange
+        var expectedResult = new Collection<PSObject>()
+        {
+            new PSObject("obj1"),
+            new PSObject("obj2")
+        };
+
+        SetupExecuteScriptCommonMockMethods(false);
+        _powerShellWrapperMock.Setup(ps => ps.Invoke()).Returns(expectedResult);
 
         // Act
         var result = _powerShellService.ExecuteScript(Script);
 
         // Assert
         _powerShellWrapperMock.Verify(ps => ps.Clear(), Times.Once);
+        Assert.NotNull(result);
         Assert.Equal(expectedResult, result);
     }
 
@@ -69,7 +95,7 @@ public class PowerShellServiceTests
     public void ExecuteScript_EmptyResult_NullReturned()
     {
         // Arrange
-        SetupCommonMockMethods();
+        SetupExecuteScriptCommonMockMethods();
         _powerShellWrapperMock.Setup(ps => ps.Invoke()).Returns([]);
 
         // Act
@@ -86,7 +112,7 @@ public class PowerShellServiceTests
         // Arrange
         var errorStream = new PSDataCollection<ErrorRecord>();
 
-        SetupCommonMockMethods();
+        SetupExecuteScriptCommonMockMethods();
         _powerShellWrapperMock.Setup(ps => ps.Invoke()).Throws<ParseException>();
         _powerShellWrapperMock.Setup(ps => ps.ErrorStream).Returns(errorStream);
 
@@ -109,7 +135,7 @@ public class PowerShellServiceTests
         var exception = new ParseException(parseErrors);
         var expectedErrorRecords = parseErrors.Select(CreateErrorRecord).ToArray();
 
-        SetupCommonMockMethods();
+        SetupExecuteScriptCommonMockMethods();
         _powerShellWrapperMock.Setup(ps => ps.Invoke()).Throws(() => exception);
         _powerShellWrapperMock.Setup(ps => ps.ErrorStream).Returns(errorStream).Verifiable();
 
@@ -130,7 +156,7 @@ public class PowerShellServiceTests
         var exception = new ParseException("message");
         var expectedErrorRecords = new[] { exception.ErrorRecord };
 
-        SetupCommonMockMethods();
+        SetupExecuteScriptCommonMockMethods();
         _powerShellWrapperMock.Setup(ps => ps.Invoke()).Throws(() => exception);
         _powerShellWrapperMock.Setup(ps => ps.ErrorStream).Returns(errorStream).Verifiable();
 
