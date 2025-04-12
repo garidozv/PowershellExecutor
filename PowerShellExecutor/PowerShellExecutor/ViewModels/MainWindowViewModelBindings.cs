@@ -1,7 +1,10 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows;
+using System.Windows.Documents;
 using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Threading;
 
 namespace PowerShellExecutor.ViewModels;
 
@@ -14,6 +17,7 @@ public class MainWindowViewModelBindings  : INotifyPropertyChanged
     private int _commandInputCaretIndex = 0;
     private bool _isInputTextBoxReadOnly = false;
     private Visibility _readTextBoxVisibility = Visibility.Collapsed;
+    private FlowDocument _resultDocument = new FlowDocument();
 
     /// <summary>
     /// Gets the command that triggers when the Enter key is pressed on CommandInputTextBox
@@ -54,6 +58,11 @@ public class MainWindowViewModelBindings  : INotifyPropertyChanged
     /// Gets the command that triggers when the Enter key is pressed on CommandResultTextBox
     /// </summary>
     public ICommand ReadTextBoxControlCCommand { get; init; }
+    
+    /// <summary>
+    /// Gets the result document
+    /// </summary>
+    public FlowDocument ResultDocument => _resultDocument;
 
     /// <summary>
     /// Gets or sets the command input text
@@ -166,6 +175,48 @@ public class MainWindowViewModelBindings  : INotifyPropertyChanged
                 OnPropertyChanged(nameof(PromptTextBoxVisibility));
             }
         }
+    }
+
+    /// <summary>
+    /// Adds a new paragraph with the specified text and colors to the result document
+    /// </summary>
+    /// <param name="text">The text to add to the result document</param>
+    /// <param name="foregroundColor">The color to use for the text foreground</param>
+    /// <param name="backgroundColor">The color to use for the text background</param>
+    /// <remarks>
+    /// This method raises the <see cref="PropertyChanged"/> event for <see cref="ResultDocument"/>
+    /// </remarks>
+    public void AddTextToResultDocument(string text, Color foregroundColor, Color backgroundColor)
+    {
+        Application.Current.Dispatcher.Invoke(() =>
+        {
+            var paragraph = new Paragraph(new Run(text)
+            {
+                Background = new SolidColorBrush(backgroundColor),
+                Foreground = new SolidColorBrush(foregroundColor)
+            })
+            {
+                Margin = new Thickness(0)
+            };
+            
+            _resultDocument.Blocks.Add(paragraph);
+            OnPropertyChanged(nameof(ResultDocument));
+        });
+    }
+
+    /// <summary>
+    /// Clears the contents of result document
+    /// </summary>
+    /// <remarks>
+    /// This method raises the <see cref="PropertyChanged"/> event for <see cref="ResultDocument"/>
+    /// </remarks> 
+    public void ClearResultDocument()
+    {
+        Application.Current.Dispatcher.Invoke(() =>
+        {
+            _resultDocument.Blocks.Clear();
+            OnPropertyChanged(nameof(ResultDocument));
+        });
     }
 
     /// <summary>

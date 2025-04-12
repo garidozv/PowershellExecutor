@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
         xmlns:local="clr-namespace:PowerShellExecutor"
-        xmlns:behaviors="clr-namespace:PowerShellExecutor.Behaviors"
+        xmlns:mvvm="clr-namespace:PowerShellExecutor.MVVM"
         xmlns:viewModel="clr-namespace:PowerShellExecutor.ViewModels"
         mc:Ignorable="d"
         d:DataContext="{d:DesignInstance viewModel:MainWindowViewModelBindings, IsDesignTimeCreatable=True}"
@@ -72,7 +72,7 @@
                         UpdateSourceTrigger=PropertyChanged}">
                 
                 <i:Interaction.Behaviors>
-                    <behaviors:BindableCaretIndexBehavior CaretIndex="{Binding CommandInputCaretIndex, Mode=TwoWay}" />
+                    <mvvm:BindableCaretIndexBehavior CaretIndex="{Binding CommandInputCaretIndex, Mode=TwoWay}" />
                 </i:Interaction.Behaviors>
 
                 <i:Interaction.Triggers>
@@ -140,9 +140,12 @@
             
         </Grid>
         
-        <RichTextBox Grid.Row="2" Name="CommandResultRichTextBox"
+        <mvvm:BindableRichTextBox Grid.Row="2" x:Name="CommandResultRichTextBox"
                  Style="{StaticResource RichTextBoxPowerShellStyle}"
                  IsReadOnly="True"
-                 VerticalScrollBarVisibility="Auto"/>
+                 VerticalScrollBarVisibility="Auto"
+                 Document="{Binding ResultDocument,
+                    Mode=OneWay,
+                    UpdateSourceTrigger=PropertyChanged}"/>
     </Grid>
 </Window>

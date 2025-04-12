@@ -19,7 +19,7 @@ public partial class MainWindow : Window
         _powerShellWrapper = new PowerShellWrapper();
         var powerShellService = new PowerShellService(_powerShellWrapper);
         _viewModel = new MainWindowViewModel(powerShellService, new CommandHistory(),
-            () => Dispatcher.Invoke(Close), CommandResultRichTextBox);
+            () => Dispatcher.Invoke(Close));
         
         DataContext = _viewModel.Bindings;
         CommandInputTextBox.Focus();

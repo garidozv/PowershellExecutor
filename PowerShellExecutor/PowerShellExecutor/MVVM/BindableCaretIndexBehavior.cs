@@ -2,7 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using Microsoft.Xaml.Behaviors;
 
-namespace PowerShellExecutor.Behaviors;
+namespace PowerShellExecutor.MVVM;
 
 /// <summary>
 /// A behavior for a WPF <see cref="TextBox"/> control to enable two-way binding for the caret index property

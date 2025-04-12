@@ -42,7 +42,6 @@ public class MainWindowViewModel
     private Task<IEnumerable<PSObject>?>? _commandExecutionTask;
     
     private readonly Action _closeWindowAction;
-    private readonly RichTextBox _commandResultRichTextBox;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="MainWindowViewModel"/> class
@@ -52,12 +51,11 @@ public class MainWindowViewModel
     /// <param name="closeWindowAction">An action to close the main application window.</param>
     /// <param name="commandResultRichTextBox">The rich text box used for displaying command results in the main window.</param>
     public MainWindowViewModel(PowerShellService powerShellService, CommandHistory commandHistory,
-        Action closeWindowAction, RichTextBox commandResultRichTextBox)
+        Action closeWindowAction)
     {
         _powerShellService = powerShellService;
         _commandHistory = commandHistory;
         _closeWindowAction = closeWindowAction;
-        _commandResultRichTextBox = commandResultRichTextBox;
 
         Bindings = new MainWindowViewModelBindings()
         {
@@ -114,7 +112,7 @@ public class MainWindowViewModel
     
         // noNewLine is ignored since the way output is displayed has a new line by default
         
-        CommandResultAddLine(text, new ColorScheme(foregroundColorValue, backgroundColorValue));
+        Bindings.AddTextToResultDocument(text, foregroundColorValue, backgroundColorValue);
     }
 
     /// <summary>
@@ -144,7 +142,7 @@ public class MainWindowViewModel
     /// </summary>
     public void ClearHost()
     {
-        CommandResultClear();
+        Bindings.ClearResultDocument();
         _commandResultDisplayHandled = true;
     }
 
@@ -172,7 +170,7 @@ public class MainWindowViewModel
     {
         _commandHistory.AddCommand(Bindings.CommandInput);
 
-        CommandResultClear();
+        Bindings.ClearResultDocument();
 
         _commandExecutionTask = Task.Run(() => _powerShellService.ExecuteScript(Bindings.CommandInput, true));
         var executionResult = await _commandExecutionTask;
@@ -194,7 +192,8 @@ public class MainWindowViewModel
         }
 
         if (executionResult is not null)
-            CommandResultAddLine(executionResult.FirstOrDefault()?.ToSingleLineString() ?? string.Empty, CommandOutputColors.Default);
+            Bindings.AddTextToResultDocument(executionResult.FirstOrDefault()?.ToSingleLineString() ?? string.Empty,
+                CommandOutputColors.Default.Foreground, CommandOutputColors.Default.Background);
     }
 
     /// <summary>
@@ -326,45 +325,6 @@ public class MainWindowViewModel
         _commandExecutionStopped = true;
         _readTextBoxSubmitted.Set();
     }
-
-    /// <summary>
-    /// Adds a line of text with a specified color scheme to the command result <see cref="RichTextBox"/>
-    /// </summary>
-    /// <param name="text">The line of text to be added</param>
-    /// <param name="colorScheme">The color scheme applied to the foreground and background</param>
-    private void CommandResultAddLine(string text, ColorScheme colorScheme)
-    {
-        ArgumentNullException.ThrowIfNull(text);
-        ArgumentNullException.ThrowIfNull(colorScheme);
-
-        if (text.Equals(string.Empty)) return;
-    
-        _commandResultRichTextBox.Dispatcher.Invoke(() =>
-        {
-            var paragraph = new Paragraph(new Run(text)
-            {
-                Background = new SolidColorBrush(colorScheme.Background),
-                Foreground = new SolidColorBrush(colorScheme.Foreground)
-            })
-            {
-                Margin = new Thickness(0)
-            };
-    
-            _commandResultRichTextBox.Document.Blocks.Add(paragraph);
-        });
-    }
-
-    /// <summary>
-    /// Clears the content of the command result text box by clearing all blocks
-    /// in its document.
-    /// </summary>
-    private void CommandResultClear()
-    {
-        _commandResultRichTextBox.Dispatcher.Invoke(() =>
-        {
-            _commandResultRichTextBox.Document?.Blocks.Clear();
-        });
-    }
     
     /// <summary>
     /// Handles input from the PowerShell's error stream
@@ -373,7 +333,8 @@ public class MainWindowViewModel
     /// The <see cref="ErrorRecord"/> object representing the error details from the PowerShell execution
     /// </param>
     private void HandleErrorStreamInput(ErrorRecord errorRecord) =>
-        CommandResultAddLine(errorRecord.ToSingleLineString(), CommandOutputColors.Error);
+        Bindings.AddTextToResultDocument(errorRecord.ToSingleLineString(), 
+            CommandOutputColors.Error.Foreground, CommandOutputColors.Error.Background);
 
     /// <summary>
     /// Handles input from the PowerShell's warning stream
@@ -382,7 +343,8 @@ public class MainWindowViewModel
     /// The <see cref="WarningRecord"/> object representing the error details from the PowerShell execution
     /// </param>
     private void HandleWarningStreamInput(WarningRecord warningRecord) =>
-        CommandResultAddLine(warningRecord.ToSingleLineString("WARNING: "), CommandOutputColors.Warning);
+        Bindings.AddTextToResultDocument(warningRecord.ToSingleLineString("WARNING: "), 
+            CommandOutputColors.Warning.Foreground, CommandOutputColors.Warning.Background);
 
     /// <summary>
     /// Handles input from the PowerShell's verbose stream
@@ -391,7 +353,8 @@ public class MainWindowViewModel
     /// The <see cref="VerboseRecord"/> object representing the error details from the PowerShell execution
     /// </param>
     private void HandleVerboseStreamInput(VerboseRecord verboseRecord) =>
-        CommandResultAddLine(verboseRecord.ToSingleLineString("VERBOSE: "), CommandOutputColors.Verbose);
+        Bindings.AddTextToResultDocument(verboseRecord.ToSingleLineString("VERBOSE: "), 
+            CommandOutputColors.Verbose.Foreground, CommandOutputColors.Verbose.Background);
 
     /// <summary>
     /// Handles input from the PowerShell's debug stream
@@ -400,7 +363,8 @@ public class MainWindowViewModel
     /// The <see cref="DebugRecord"/> object representing the error details from the PowerShell execution
     /// </param>
     private void HandleDebugStreamInput(DebugRecord debugRecord) =>
-        CommandResultAddLine(debugRecord.ToSingleLineString("DEBUG: "), CommandOutputColors.Debug);
+        Bindings.AddTextToResultDocument(debugRecord.ToSingleLineString("DEBUG: "), 
+            CommandOutputColors.Debug.Foreground, CommandOutputColors.Debug.Background);
     
     /// <summary>
     /// Handles input from the PowerShell's information stream
@@ -409,7 +373,8 @@ public class MainWindowViewModel
     /// The <see cref="InformationRecord"/> object representing the error details from the PowerShell execution
     /// </param>
     private void HandleInformationStreamInput(InformationRecord informationRecord) =>
-        CommandResultAddLine(informationRecord.ToSingleLineString(), CommandOutputColors.Information);
+        Bindings.AddTextToResultDocument(informationRecord.ToSingleLineString(), 
+            CommandOutputColors.Information.Foreground, CommandOutputColors.Information.Background);
 
     /// <summary>
     /// Converts a <see cref="ConsoleColor"/> to a <see cref="Color"/>
