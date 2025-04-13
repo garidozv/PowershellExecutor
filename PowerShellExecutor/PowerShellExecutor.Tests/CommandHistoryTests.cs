@@ -203,4 +203,151 @@ public class CommandHistoryTests
         // Assert
         Assert.Equal(ThirdCommand, returnedCommand);
     }
+
+    [Fact]
+    public void GetSessionHistory_EmptyHistory_ReturnedEmptyEnumerable()
+    {
+        // Arrange
+        
+        // Act
+        var result = _commandHistory.GetSessionHistory();
+        
+        // Assert
+        Assert.Empty(result);
+    }
+    
+    [Fact]
+    public void GetSessionHistory_NonEmptyHistoryNullCount_ReturnsAllCommands()
+    {
+        // Arrange
+        const int expectedCount = 2;
+        
+        // Act
+        _commandHistory.AddCommand(FirstCommand);
+        _commandHistory.AddCommand(SecondCommand);
+        var result = _commandHistory.GetSessionHistory();
+        
+        // Assert
+        Assert.Equal(expectedCount, result.Count());
+    }
+    
+    [Fact]
+    public void GetSessionHistory_NegativeCount_ThrowsArgumentOutOfRangeException()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => _commandHistory.GetSessionHistory(-1));
+    }
+    
+    [Fact]
+    public void GetSessionHistory_CountLesserThanCommandCount_ReturnsCountCommands()
+    {
+        // Arrange
+        const int expectedCount = 1;
+        
+        // Act
+        _commandHistory.AddCommand(FirstCommand);
+        _commandHistory.AddCommand(SecondCommand);
+        var result = _commandHistory.GetSessionHistory(expectedCount);
+        
+        // Assert
+        Assert.Single(result);
+    }
+    
+    [Fact]
+    public void GetSessionHistory_CountGreaterThanCommandCount_ReturnsAllCommands()
+    {
+        // Arrange
+        const int passedCount = 3, expectedCount = 2;
+        
+        // Act
+        _commandHistory.AddCommand(FirstCommand);
+        _commandHistory.AddCommand(SecondCommand);
+        var result = _commandHistory.GetSessionHistory(passedCount);
+        
+        // Assert
+        Assert.Equal(expectedCount, result.Count());
+    }
+    
+    [Fact]
+    public void GetSessionHistory_CountLesserThanCommandCount_NewestCommandsReturned()
+    {
+        // Arrange
+        const int passedCount = 1;
+        
+        // Act
+        _commandHistory.AddCommand(FirstCommand);
+        _commandHistory.AddCommand(SecondCommand);
+        var result = _commandHistory.GetSessionHistory(passedCount);
+        
+        // Assert
+        Assert.Equal(SecondCommand, result.First());
+    }
+    
+    [Fact]
+    public void ClearSessionHistory_NegativeCount_ThrowsArgumentOutOfRangeException()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => _commandHistory.ClearSessionHistory(-1));
+    }
+    
+    [Fact]
+    public void ClearSessionHistory_NullCount_HistoryCleared()
+    {
+        // Arrange
+        
+        // Act
+        _commandHistory.AddCommand(FirstCommand);
+        _commandHistory.AddCommand(SecondCommand);
+        _commandHistory.ClearSessionHistory();
+        var res = _commandHistory.GetSessionHistory();
+        
+        // Assert
+        Assert.Empty(res);
+    }
+    
+    [Fact]
+    public void ClearSessionHistory_CountGreaterThanCommandCount_HistoryCleared()
+    {
+        // Arrange
+        const int passedCount = 3;
+        
+        // Act
+        _commandHistory.AddCommand(FirstCommand);
+        _commandHistory.AddCommand(SecondCommand);
+        _commandHistory.ClearSessionHistory(passedCount);
+        var res = _commandHistory.GetSessionHistory();
+        
+        // Assert
+        Assert.Empty(res);
+    }
+    
+    [Fact]
+    public void ClearSessionHistory_CountLesserThanCommandCount_CountCommandsCleared()
+    {
+        // Arrange
+        const int passedClearCount = 1, expectedCommandCount = 1;
+        
+        // Act
+        _commandHistory.AddCommand(FirstCommand);
+        _commandHistory.AddCommand(SecondCommand);
+        _commandHistory.ClearSessionHistory(passedClearCount);
+        var res = _commandHistory.GetSessionHistory();
+        
+        // Assert
+        Assert.Equal(expectedCommandCount, res.Count());
+    }
+    
+    [Fact]
+    public void ClearSessionHistory_CountLesserThanCommandCount_OldestCommandsCleared()
+    {
+        // Arrange
+        const int passedCount = 1;
+        
+        // Act
+        _commandHistory.AddCommand(FirstCommand);
+        _commandHistory.AddCommand(SecondCommand);
+        _commandHistory.ClearSessionHistory(passedCount);
+        var res = _commandHistory.GetSessionHistory();
+        
+        // Assert
+        Assert.Equal(SecondCommand, res.First());
+    }
 }

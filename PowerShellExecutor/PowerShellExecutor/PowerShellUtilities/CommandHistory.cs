@@ -164,6 +164,9 @@ public class CommandHistory
     /// </returns>
     public IEnumerable<string> GetSessionHistory(int? count = null)
     {
+        if (count is not null)
+            ArgumentOutOfRangeException.ThrowIfNegative(count.Value, nameof(count));
+        
         var sessionHistoryCount = _history.Count - _sessionHistoryStartIndex;
         var sessionHistory = _sessionHistoryStartIndex == _history.Count ? [] 
             : _history.Slice(_sessionHistoryStartIndex, sessionHistoryCount).AsEnumerable();
@@ -177,10 +180,17 @@ public class CommandHistory
     /// <summary>
     /// Clears the session history up to a specified count. If no count is provided, it clears all session history.
     /// </summary>
-    /// <param name="count">An optional count specifying how many history entries to clear. If null, all session history is cleared.</param>
-    public void ClearSessionHistory(int? count = null) =>
+    /// <param name="count">
+    /// An optional count specifying how many history entries to clear. If null, all session history is cleared.
+    /// </param>
+    public void ClearSessionHistory(int? count = null)
+    {
+        if (count is not null)
+            ArgumentOutOfRangeException.ThrowIfNegative(count.Value, nameof(count));
+        
         _sessionHistoryStartIndex = count is null ? _history.Count 
             : Math.Min(_sessionHistoryStartIndex + count.Value, _history.Count);
+    }
 
     /// <summary>
     /// Checks if the history is empty
