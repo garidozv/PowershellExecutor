@@ -16,6 +16,7 @@ public class WriteHostCmdlet : PSCmdlet
         SessionState.PSVariable.Get(nameof(ViewModels.MainWindowViewModel)).Value as MainWindowViewModel;
     
     [Parameter(Mandatory = true, Position = 0, ValueFromPipeline = true, ValueFromRemainingArguments = true)]
+    [Alias("Msg", "Message")]
     public object[] Object { get; set; }
 
     [Parameter]

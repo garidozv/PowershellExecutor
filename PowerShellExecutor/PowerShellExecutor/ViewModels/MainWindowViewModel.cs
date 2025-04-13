@@ -110,11 +110,11 @@ public partial class MainWindowViewModel
     /// </summary>
     /// <returns>The string entered by the user into the result text box</returns>
     /// <remarks>This is a blocking method</remarks>
-    public string ReadHost(string? prompt, bool asSecureString)
+    public string ReadHost(object[]? prompt, bool asSecureString)
     {
         IsInputTextBoxReadOnly = true;
         ReadText = string.Empty;
-        PromptText = prompt ?? string.Empty;
+        PromptText = prompt is null ? string.Empty : $"{string.Join(' ', prompt)}:";
         ReadTextBoxVisibility = Visibility.Visible;
         
         _readTextBoxSubmitted.WaitOne();

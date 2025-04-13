@@ -14,13 +14,14 @@ namespace PowerShellExecutor.CustomCmdlets;
 [Cmdlet(VerbsCommunications.Read, "Host")]
 public class ReadHostCmdlet : PSCmdlet
 {
+    
     private MainWindowViewModel? MainWindowViewModel =>
         SessionState.PSVariable.Get(nameof(ViewModels.MainWindowViewModel)).Value as MainWindowViewModel;
     
-    [Parameter(Mandatory = false, Position = 0)]
-    public string Prompt { get; set; }
-
-    [Parameter(Mandatory = false)]
+    [Parameter(Position = 0, ValueFromRemainingArguments = true)]
+    [AllowNull]
+    public object[] Prompt { get; set; }
+    
     public SwitchParameter AsSecureString { get; set; }
     
     protected override void ProcessRecord()
