@@ -142,6 +142,30 @@ public partial class MainWindowViewModel
     public void ExitHost() => _closeWindowAction();
 
     /// <summary>
+    /// Retrieves the command history of the current host session
+    /// </summary>
+    /// <param name="count">
+    /// An optional parameter to limit the number of commands returned. If <c>null</c>, all commands are returned
+    /// </param>
+    /// <returns>
+    /// An <see creg="IEnumerable{T}"/> of anonymous objects containing the Id and the CommandLine for each history entry
+    /// </returns>
+    public IEnumerable<object> GetHistory(int? count) =>
+        _commandHistory.GetSessionHistory(count)
+            .Select((command, index) => new { Id = index + 1, CommandLine = command });
+
+    /// <summary>
+    /// Clears the command history of the current host session.
+    /// Clears either the whole history or a specified number of entries
+    /// </summary>
+    /// <param name="count">
+    /// An optional parameter specifying the number of history entries to clear. If null,
+    /// all history entries are cleared.
+    /// </param>
+    public void ClearHistory(int? count) =>
+        _commandHistory.ClearSessionHistory(count);
+
+    /// <summary>
     /// Cleans up resources and ensures any ongoing command execution is completed
     /// </summary>
     public async Task Cleanup()

@@ -1,3 +1,5 @@
+using System.IO;
+
 namespace PowerShellExecutor.PowerShellUtilities;
 
 /// <summary>
@@ -21,6 +23,56 @@ public class CommandHistory
     
     private readonly List<string> _history = [];
     private int _lastFetchedIndex;
+    
+    private readonly string? _historyFilePath;
+    private int _sessionHistoryStartIndex = 0;
+
+    /// <summary>
+    /// Create an instance of <see cref="CommandHistory"/>
+    /// </summary>
+    public CommandHistory()
+    {
+        
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="CommandHistory"/> class and loads existing
+    /// command history from the specified file
+    /// </summary>
+    /// <param name="filePath">The path to the file used for storing and loading command history</param>
+    /// <remarks>
+    /// If the file does not exist, it is created as an empty file. If the file cannot be read due to an I/O error,
+    /// a warning is written to standard error, and the command history will not be persisted during this session
+    /// </remarks>
+    public CommandHistory(string filePath)
+    {
+        try
+        {
+            if (!File.Exists(filePath))
+                File.Create(filePath).Dispose();
+
+            using var sr = new StreamReader(filePath);
+            
+            while (!sr.EndOfStream)
+            {
+                var command = sr.ReadLine();
+                if (string.IsNullOrWhiteSpace(command)) continue;
+                
+                _history.Add(command);
+            }
+            
+            MoveToStart();
+            _sessionHistoryStartIndex = _history.Count + 1;
+            _historyFilePath = filePath;
+        }
+        catch (IOException e)
+        {
+            Console.Error.WriteLine($"WARNING: Failed to load the command history from '{filePath}': {e.Message}");
+            Console.Error.WriteLine("Command history will not be saved or loaded.");
+            _history.Clear();
+            _historyFilePath = null;
+        }
+    }
     
     /// <summary>
     /// Gets the number of commands contained in <see cref="CommandHistory"/>
@@ -80,6 +132,56 @@ public class CommandHistory
         return _history[++_lastFetchedIndex];
     }
     
+    /// <summary>
+    /// Saves the current command history to the associated history file, if available
+    /// </summary>
+    /// <remarks>
+    /// If an I/O error occurs while writing to the file the application continues without crashing.
+    /// </remarks>
+    public void SaveHistory()
+    {
+        if (_historyFilePath is null) return;
+
+        try
+        {
+            File.WriteAllLines(_historyFilePath, _history);
+        }
+        catch (IOException e)
+        {
+            Console.Error.WriteLine($"WARNING: Failed to save command history: {e.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Retrieves the command history of the current session
+    /// </summary>
+    /// <param name="count">
+    /// An optional parameter specifying the maximum number of history entries to return.
+    /// If <c>null</c>, all session history entries are returned
+    /// </param>
+    /// <returns>
+    /// An <see creg="IEnumerable"/> of commands in the current session's history
+    /// </returns>
+    public IEnumerable<string> GetSessionHistory(int? count = null)
+    {
+        var sessionHistoryCount = _history.Count - _sessionHistoryStartIndex;
+        var sessionHistory = _sessionHistoryStartIndex == _history.Count ? [] 
+            : _history.Slice(_sessionHistoryStartIndex, sessionHistoryCount).AsEnumerable();
+        
+        if (count is not null && count < sessionHistoryCount)
+            sessionHistory = sessionHistory.Take(Range.StartAt(_history.Count - _sessionHistoryStartIndex - count.Value));
+        
+        return sessionHistory;
+    }
+
+    /// <summary>
+    /// Clears the session history up to a specified count. If no count is provided, it clears all session history.
+    /// </summary>
+    /// <param name="count">An optional count specifying how many history entries to clear. If null, all session history is cleared.</param>
+    public void ClearSessionHistory(int? count = null) =>
+        _sessionHistoryStartIndex = count is null ? _history.Count 
+            : Math.Min(_sessionHistoryStartIndex + count.Value, _history.Count);
+
     /// <summary>
     /// Checks if the history is empty
     /// </summary>

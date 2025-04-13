@@ -1,4 +1,6 @@
-﻿using System.Windows;
+﻿using System.IO;
+using System.Reflection;
+using System.Windows;
 using PowerShellExecutor.PowerShellUtilities;
 using PowerShellExecutor.ViewModels;
 
@@ -9,17 +11,23 @@ namespace PowerShellExecutor;
 /// </summary>
 public partial class MainWindow : Window
 {
+    private const string AppName = "PowerShellExecutor";
+    private const string CommandHistoryFileName = "command_history.txt";
+    
     private readonly PowerShellWrapper _powerShellWrapper;
     private readonly MainWindowViewModel _viewModel;
-    
+    private readonly CommandHistory _commandHistory;
+
     public MainWindow()
     {
         InitializeComponent();
         
+        var commandHistoryFilePath = GetCommandHistoryFilePath();
+        _commandHistory = new CommandHistory(commandHistoryFilePath);
+        
         _powerShellWrapper = new PowerShellWrapper();
         var powerShellService = new PowerShellService(_powerShellWrapper);
-        _viewModel = new MainWindowViewModel(powerShellService, new CommandHistory(),
-            () => Dispatcher.Invoke(Close));
+        _viewModel = new MainWindowViewModel(powerShellService, _commandHistory, () => Dispatcher.Invoke(Close));
 
         DataContext = _viewModel;
         CommandInputTextBox.Focus();
@@ -27,9 +35,29 @@ public partial class MainWindow : Window
     
     protected override async void OnClosed(EventArgs e)
     {
+        _commandHistory.SaveHistory();
         await _viewModel.Cleanup();
         _powerShellWrapper.Dispose();
         base.OnClosed(e);
+    }
+
+    /// <summary>
+    /// Gets the file path to command history file
+    /// </summary>
+    /// <returns>The file path to command history file</returns>
+    /// <remarks>
+    /// This method creates an app data directory for this app if it doesn't already exist
+    /// </remarks>
+    private static string GetCommandHistoryFilePath()
+    {
+        var appName = Assembly.GetEntryAssembly()?.GetName().Name ?? AppName;
+        var appDataFolder = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            appName);
+        
+        Directory.CreateDirectory(appDataFolder);
+
+        return Path.Combine(appDataFolder, CommandHistoryFileName);
     }
 
     /*
