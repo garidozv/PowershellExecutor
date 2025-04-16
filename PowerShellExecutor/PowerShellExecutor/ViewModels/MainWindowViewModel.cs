@@ -63,11 +63,7 @@ public partial class MainWindowViewModel
         InputTextChangedCommand = new RelayCommand(OnInputTextChanged);
         ReadTextBoxControlCCommand = new RelayCommand(StopReadHost);
         
-        
-        _powerShellService.RegisterCustomCmdlet<WriteHostCmdlet>();
         _powerShellService.RegisterCustomCmdlet<ClearHostCmdlet>();
-        _powerShellService.RegisterCustomCmdlet<ReadHostCmdlet>();
-        _powerShellService.RegisterCustomCmdlet<ExitHostCmdlet>();
         _powerShellService.SetVariable(nameof(MainWindowViewModel), this);
         
         _powerShellService.SubscribeToErrorStream(HandleErrorStreamInput);

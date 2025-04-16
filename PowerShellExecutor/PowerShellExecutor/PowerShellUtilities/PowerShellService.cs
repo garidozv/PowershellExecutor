@@ -33,19 +33,20 @@ public class PowerShellService
     /// <typeparam name="T">
     /// The type of the custom cmdlet to register. It must be derived from <see cref="PSCmdlet"/>
     /// </typeparam>
+    /// <remarks>
+    /// Use this method only for cmdlets that conflict with existing functions of the same name.
+    /// A common example is the 'Clear-Host' command, which is implemented as a function
+    /// </remarks>
     public void RegisterCustomCmdlet<T>() where T : PSCmdlet
     {
         var cmdletAttribute = typeof(T).GetCustomAttribute<CmdletAttribute>();
         
         if (cmdletAttribute is null)
-            throw new InvalidOperationException($"The type '{typeof(T).FullName}' does not have a CmdletAttribute");
+            throw new InvalidOperationException($"The type '{typeof(T).FullName}' does not have a {nameof(CmdletAttribute)}");
         
         var cmdletName = $"{cmdletAttribute.VerbName}-{cmdletAttribute.NounName}";
-
-        /*
-         * Try to remove any existing functions since they will override the cmdlet
-         * For example Clear-Host is defined as function for some reason
-         */
+        
+        // Try to remove any existing functions since they will override the cmdlet
         RemoveExistingFunction(cmdletName);
         ImportModule(typeof(T).Assembly);
     }
