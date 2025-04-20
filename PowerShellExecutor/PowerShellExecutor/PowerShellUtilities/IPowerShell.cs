@@ -91,6 +91,11 @@ public interface IPowerShell
     Collection<PSObject> Invoke();
 
     /// <summary>
+    /// Stops the execution of the current PowerShell pipeline
+    /// </summary>
+    void Stop();
+
+    /// <summary>
     /// Retrieves command completion results for a specified command at a given position within the command string
     /// </summary>
     /// <param name="commandName">The command string for which completion results are to be generated</param>

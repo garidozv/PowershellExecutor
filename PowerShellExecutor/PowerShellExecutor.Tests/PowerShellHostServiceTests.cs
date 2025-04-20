@@ -92,12 +92,14 @@ public class PowerShellServiceTests
     }
 
     [Fact]
-    public void ExecuteScript_EmptyResult_NullReturned()
+    public void ExecuteScript_ExecutionStopped_NullReturned()
     {
         // Arrange
         SetupExecuteScriptCommonMockMethods();
-        _powerShellWrapperMock.Setup(ps => ps.Invoke()).Returns([]);
-
+        _powerShellWrapperMock.Setup(ps => ps.Invoke())
+            .Callback(_powerShellHostService.StopExecution)
+            .Returns([]);
+        
         // Act
         var result = _powerShellService.ExecuteScript(Script);
 

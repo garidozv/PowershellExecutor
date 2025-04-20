@@ -97,6 +97,9 @@
                     <KeyBinding 
                         Key="Tab" 
                         Command="{Binding CommandInputTabKeyCommand}"/>
+                    <KeyBinding 
+                        Key="C" Modifiers="Control"
+                        Command="{Binding CommandInputControlCCommand}"/>
                 </TextBox.InputBindings>
             </TextBox>
         </Grid>

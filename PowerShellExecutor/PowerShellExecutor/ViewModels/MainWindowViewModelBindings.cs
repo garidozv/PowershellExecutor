@@ -51,6 +51,11 @@ public partial class MainWindowViewModel  : INotifyPropertyChanged
     /// Gets the command that triggers when the Tab key is pressed on CommandInputTextBox
     /// </summary>
     public ICommand CommandInputTabKeyCommand { get; init; }
+    
+    /// <summary>
+    /// Gets the command that triggers when Control-C is pressed on CommandInputTextBox
+    /// </summary>
+    public ICommand CommandInputControlCCommand { get; init; }
 
     /// <summary>
     /// Gets the command that triggers when input text is changed
@@ -58,7 +63,7 @@ public partial class MainWindowViewModel  : INotifyPropertyChanged
     public ICommand InputTextChangedCommand { get; init; }
 
     /// <summary>
-    /// Gets the command that triggers when the Enter key is pressed on CommandResultTextBox
+    /// Gets the command that triggers when Control-C is pressed on CommandResultTextBox
     /// </summary>
     public ICommand ReadTextBoxControlCCommand { get; init; }
     

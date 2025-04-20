@@ -60,6 +60,7 @@ public partial class MainWindowViewModel
         CommandInputDownKeyCommand = new RelayCommand(SetCommandToHistoryPrev);
         CommandInputEscapeKeyCommand = new RelayCommand(ResetCommandInput);
         CommandInputTabKeyCommand = new RelayCommand(GetNextCompletion);
+        CommandInputControlCCommand = new RelayCommand(StopCommandExecution);
         InputTextChangedCommand = new RelayCommand(OnInputTextChanged);
         ReadTextBoxControlCCommand = new RelayCommand(StopReadHost);
         
@@ -102,7 +103,7 @@ public partial class MainWindowViewModel
     }
 
     /// <summary>
-    /// Handles the Read-Host command by waiting for user input in the command result text box
+    /// Handles the Read-Host command by waiting for user input in the read text box
     /// </summary>
     /// <returns>The string entered by the user into the result text box</returns>
     /// <remarks>This is a blocking method</remarks>
@@ -182,7 +183,7 @@ public partial class MainWindowViewModel
 
         ClearResultDocument();
 
-        _commandExecutionTask = Task.Run(() => _powerShellService.ExecuteScript(CommandInput, true));
+        _commandExecutionTask = Task.Run(() => _powerShellService.ExecuteScript(CommandInput, outputAsString: true));
         var executionResult = await _commandExecutionTask;
         _commandExecutionTask = null;
         
@@ -201,8 +202,8 @@ public partial class MainWindowViewModel
             return;
         }
 
-        if (executionResult is not null)
-            AddTextToResultDocument(executionResult.FirstOrDefault()?.ToSingleLineString() ?? string.Empty,
+        if (executionResult is not null && executionResult.Any())
+            AddTextToResultDocument(executionResult.First().ToSingleLineString(),
                 CommandOutputColors.Default.Foreground, CommandOutputColors.Default.Background);
     }
 
@@ -297,7 +298,7 @@ public partial class MainWindowViewModel
          * the first Tab press will complete it to './Desktop'. A subsequent Tab press will append further completions
          * like './Desktop/someFile', similar to how PowerShell behaves.
          *
-         * However, if there are multiple completions ('./De' could complete to './Desktop' and './Documents'),
+         * However, if there are multiple completions ('./D' could complete to './Desktop' and './Documents'),
          * Tab will cycle through these completions, and the next completion will not be generated until the input changes.
          */
         if (_currentCompletion.CompletionMatches.Count == 1)
@@ -334,6 +335,14 @@ public partial class MainWindowViewModel
     {
         _commandExecutionStopped = true;
         _readTextBoxSubmitted.Set();
+    }
+    
+    /// <summary>
+    /// Stops the command execution
+    /// </summary>
+    private void StopCommandExecution()
+    {
+        _powerShellService.StopExecution();
     }
     
     /// <summary>

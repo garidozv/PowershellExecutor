@@ -10,6 +10,7 @@ namespace PowerShellExecutor.PowerShellUtilities;
 public class PowerShellService
 {
     private readonly IPowerShell _powerShell;
+    private bool _executionStopped;
 
     /// <summary>
     /// Creates an instance of <see cref="PowerShellService"/> and sets the
@@ -52,6 +53,19 @@ public class PowerShellService
     }
 
     /// <summary>
+    /// Stops the execution of the currently running PowerShell pipeline
+    /// </summary>
+    /// <remarks>
+    /// Since <see cref="ExecuteScript"/> uses synchronous <c>Invoke</c> method,
+    /// stopping the pipeline will return a partial result
+    /// </remarks>
+    public void StopExecution()
+    {
+        _powerShell.Stop();
+        _executionStopped = true;
+    }
+
+    /// <summary>
     /// Executes the given PowerShell script and returns the execution result
     /// </summary>
     /// <param name="script">The PowerShell script to be executed</param>
@@ -59,21 +73,22 @@ public class PowerShellService
     /// If <c>true</c>, appends <c>| Out-String</c> to the script before execution to return a string representation of the output.
     /// If <c>false</c>, returns the raw result of the script.
     /// </param>
-    /// <returns>The string representation of the script result, or <c>null</c> if there were no results</returns>
+    /// <returns>The string representation of the script result, or <c>null</c> if execution was stopped</returns>
     public IEnumerable<PSObject>? ExecuteScript(string script, bool outputAsString = false)
     {
         ArgumentNullException.ThrowIfNull(script);
-        
+
         try
         {
             _powerShell.Clear();
             _powerShell.AddScript(script);
-            
+
             if (outputAsString)
                 _powerShell.AddCommand("out-string");
-            
+
             var invocationResult = _powerShell.Invoke();
-            return invocationResult.Count > 0 ? invocationResult : null;
+            
+            return _executionStopped ? null : invocationResult;
         }
         catch (ParseException e)
         {
@@ -89,6 +104,11 @@ public class PowerShellService
                         new Exception(error.Message), "Parse error", ErrorCategory.ParserError, null));
                 }
             }
+        }
+        finally
+        {
+            // Reset the flag here, in case that stopped pipeline throws an exception
+            _executionStopped = false;
         }
         
         return null;

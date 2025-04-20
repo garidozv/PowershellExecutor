@@ -64,6 +64,8 @@ public class PowerShellWrapper : IPowerShell, IDisposable
 
     public Collection<PSObject> Invoke() => _powerShell.Invoke();
     
+    public void Stop() => _powerShell.Stop();
+    
     public CommandCompletion GetCommandCompletion(string commandName, int commandPosition) =>
         CommandCompletion.CompleteInput(commandName, commandPosition, null, _powerShell);
 
