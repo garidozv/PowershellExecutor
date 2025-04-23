@@ -1,6 +1,7 @@
 ﻿using System.IO;
 using System.Reflection;
 using System.Windows;
+using PowerShellExecutor.CustomCmdlets;
 using PowerShellExecutor.PowerShellUtilities;
 using PowerShellExecutor.ViewModels;
 
@@ -16,18 +17,28 @@ public partial class MainWindow : Window
     
     private readonly PowerShellWrapper _powerShellWrapper;
     private readonly MainWindowViewModel _viewModel;
-    private readonly CommandHistory _commandHistory;
+    private readonly PowerShellCommandHistoryProvider _powerShellCommandHistoryProvider;
 
     public MainWindow()
     {
         InitializeComponent();
         
+        // Set up command history provider
         var commandHistoryFilePath = GetCommandHistoryFilePath();
-        _commandHistory = new CommandHistory(commandHistoryFilePath);
+        _powerShellCommandHistoryProvider = new PowerShellCommandHistoryProvider(commandHistoryFilePath);
         
+        // Set up host service
         _powerShellWrapper = new PowerShellWrapper();
-        var powerShellService = new PowerShellService(_powerShellWrapper);
-        _viewModel = new MainWindowViewModel(powerShellService, _commandHistory, () => Dispatcher.Invoke(Close));
+        var powerShellService = new PowerShellHostService(_powerShellWrapper);
+        powerShellService.RegisterCustomCmdlet<ClearHostCmdlet>();
+
+        // Set up completion provider
+        var powerShellCompletionProvider = new PowerShellCompletionProvider(_powerShellWrapper);
+        
+        // Set up view model, and initialize necessary environment variable with its reference
+        _viewModel = new MainWindowViewModel(powerShellService, _powerShellCommandHistoryProvider, 
+            powerShellCompletionProvider,  () => Dispatcher.Invoke(Close));
+        powerShellService.SetVariable(nameof(MainWindowViewModel), _viewModel);
 
         DataContext = _viewModel;
         CommandInputTextBox.Focus();
@@ -35,7 +46,7 @@ public partial class MainWindow : Window
     
     protected override async void OnClosed(EventArgs e)
     {
-        _commandHistory.SaveHistory();
+        _powerShellCommandHistoryProvider.SaveHistory();
         await _viewModel.Cleanup();
         _powerShellWrapper.Dispose();
         base.OnClosed(e);
@@ -66,13 +77,7 @@ public partial class MainWindow : Window
      */
     private void ReadTextBox_OnIsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
     {
-        if (e.NewValue is true)
-        {
-            ReadTextBox.Focus();
-        }
-        else
-        {
-            CommandInputTextBox.Focus();
-        }
+        if (e.NewValue is true) ReadTextBox.Focus();
+        else CommandInputTextBox.Focus();
     }
 }

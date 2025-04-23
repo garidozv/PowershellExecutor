@@ -4,7 +4,7 @@ using System.Windows;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
-using System.Windows.Threading;
+using PowerShellExecutor.Helpers;
 
 namespace PowerShellExecutor.ViewModels;
 
@@ -189,19 +189,18 @@ public partial class MainWindowViewModel  : INotifyPropertyChanged
     /// Adds a new paragraph with the specified text and colors to the result document
     /// </summary>
     /// <param name="text">The text to add to the result document</param>
-    /// <param name="foregroundColor">The color to use for the text foreground</param>
-    /// <param name="backgroundColor">The color to use for the text background</param>
+    /// <param name="outputColorScheme">The <see cref="OutputColorScheme"/> to be used for added text</param>
     /// <remarks>
     /// This method raises the <see cref="PropertyChanged"/> event for <see cref="ResultDocument"/>
     /// </remarks>
-    public void AddTextToResultDocument(string text, Color foregroundColor, Color backgroundColor)
+    public void AddTextToResultDocument(string text, OutputColorScheme outputColorScheme)
     {
         Application.Current.Dispatcher.Invoke(() =>
         {
             var paragraph = new Paragraph(new Run(text)
             {
-                Background = new SolidColorBrush(backgroundColor),
-                Foreground = new SolidColorBrush(foregroundColor)
+                Background = new SolidColorBrush(outputColorScheme.Background),
+                Foreground = new SolidColorBrush(outputColorScheme.Foreground)
             })
             {
                 Margin = new Thickness(0)

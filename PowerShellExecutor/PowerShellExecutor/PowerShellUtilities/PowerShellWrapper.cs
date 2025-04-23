@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Management.Automation;
 using System.Management.Automation.Runspaces;
+using PowerShellExecutor.Interfaces;
 
 namespace PowerShellExecutor.PowerShellUtilities;
 

@@ -1,11 +1,12 @@
 using System.IO;
+using PowerShellExecutor.Interfaces;
 
 namespace PowerShellExecutor.PowerShellUtilities;
 
 /// <summary>
-/// Manages a history of executed commands, and allows navigation through the history
+/// Manages a history of executed PowerShell commands, and allows navigation through the history
 /// </summary>
-public class CommandHistory
+public class PowerShellCommandHistoryProvider : IHistoryProvider<string>
 {
     /*
      * Easy way to visualize the way the iteration works is like you have two dummy
@@ -28,15 +29,15 @@ public class CommandHistory
     private int _sessionHistoryStartIndex = 0;
 
     /// <summary>
-    /// Create an instance of <see cref="CommandHistory"/>
+    /// Create an instance of <see cref="PowerShellCommandHistoryProvider"/>
     /// </summary>
-    public CommandHistory()
+    public PowerShellCommandHistoryProvider()
     {
         
     }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="CommandHistory"/> class and loads existing
+    /// Initializes a new instance of the <see cref="PowerShellCommandHistoryProvider"/> class and loads existing
     /// command history from the specified file
     /// </summary>
     /// <param name="filePath">The path to the file used for storing and loading command history</param>
@@ -44,7 +45,7 @@ public class CommandHistory
     /// If the file does not exist, it is created as an empty file. If the file cannot be read due to an I/O error,
     /// a warning is written to standard error, and the command history will not be persisted during this session
     /// </remarks>
-    public CommandHistory(string filePath)
+    public PowerShellCommandHistoryProvider(string filePath)
     {
         try
         {
@@ -73,10 +74,7 @@ public class CommandHistory
             _historyFilePath = null;
         }
     }
-    
-    /// <summary>
-    /// Gets the number of commands contained in <see cref="CommandHistory"/>
-    /// </summary>
+
     public int Count => _history.Count;
 
     /// <summary>
@@ -84,7 +82,7 @@ public class CommandHistory
     /// Moves the navigation to the start of the history
     /// </summary>
     /// <param name="command">The command to add to history</param>
-    public void AddCommand(string command)
+    public void AddEntry(string command)
     {
         ArgumentNullException.ThrowIfNull(command);
 
@@ -96,10 +94,10 @@ public class CommandHistory
     
     /// <summary>
     /// Retrieves the next command in the history relative to the last read command,
-    /// or the last command, if positioned at the end of the history.
+    /// or the first command, if positioned at the start of the history.
     /// </summary>
     /// <returns>The next command, or <c>null</c> if unavailable</returns>
-    public string? NextCommand()
+    public string? NextEntry()
     {
         if (IsEmpty() || _lastFetchedIndex == -1) 
             return null;
@@ -115,10 +113,10 @@ public class CommandHistory
 
     /// <summary>
     /// Retrieves the previous command in the history relative to the last read command,
-    /// or the first command, if positioned at the start of the history.
+    /// or the last command, if positioned at the end of the history.
     /// </summary>
     /// <returns>The previous command, or <c>null</c> if unavailable</returns>
-    public string? PrevCommand()
+    public string? PrevEntry()
     {
         if (IsEmpty() || _lastFetchedIndex == _history.Count) 
             return null;
@@ -151,55 +149,8 @@ public class CommandHistory
             Console.Error.WriteLine($"WARNING: Failed to save command history: {e.Message}");
         }
     }
-
-    /// <summary>
-    /// Retrieves the command history of the current session
-    /// </summary>
-    /// <param name="count">
-    /// An optional parameter specifying the maximum number of history entries to return.
-    /// If <c>null</c>, all session history entries are returned
-    /// </param>
-    /// <returns>
-    /// An <see creg="IEnumerable"/> of commands in the current session's history
-    /// </returns>
-    public IEnumerable<string> GetSessionHistory(int? count = null)
-    {
-        if (count is not null)
-            ArgumentOutOfRangeException.ThrowIfNegative(count.Value, nameof(count));
-        
-        var sessionHistoryCount = _history.Count - _sessionHistoryStartIndex;
-        var sessionHistory = _sessionHistoryStartIndex == _history.Count ? [] 
-            : _history.Slice(_sessionHistoryStartIndex, sessionHistoryCount).AsEnumerable();
-        
-        if (count is not null && count < sessionHistoryCount)
-            sessionHistory = sessionHistory.Take(Range.StartAt(_history.Count - _sessionHistoryStartIndex - count.Value));
-        
-        return sessionHistory;
-    }
-
-    /// <summary>
-    /// Clears the session history up to a specified count. If no count is provided, it clears all session history.
-    /// </summary>
-    /// <param name="count">
-    /// An optional count specifying how many history entries to clear. If null, all session history is cleared.
-    /// </param>
-    public void ClearSessionHistory(int? count = null)
-    {
-        if (count is not null)
-            ArgumentOutOfRangeException.ThrowIfNegative(count.Value, nameof(count));
-        
-        _sessionHistoryStartIndex = count is null ? _history.Count 
-            : Math.Min(_sessionHistoryStartIndex + count.Value, _history.Count);
-    }
-
-    /// <summary>
-    /// Checks if the history is empty
-    /// </summary>
-    /// <returns><c>true</c> if history contains no commands, otherwise <c>false</c></returns>
+    
     public bool IsEmpty() => _history.Count == 0;
 
-    /// <summary>
-    /// Sets the current position to the start of the history
-    /// </summary>
     public void MoveToStart() => _lastFetchedIndex = _history.Count;
 }

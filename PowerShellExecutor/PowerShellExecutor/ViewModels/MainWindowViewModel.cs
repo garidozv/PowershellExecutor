@@ -1,11 +1,8 @@
-using System.IO;
 using System.Management.Automation;
-using System.Windows.Media;
 using System.Windows;
 using CommunityToolkit.Mvvm.Input;
-using PowerShellExecutor.CustomCmdlets;
 using PowerShellExecutor.Helpers;
-using PowerShellExecutor.PowerShellUtilities;
+using PowerShellExecutor.Interfaces;
 
 namespace PowerShellExecutor.ViewModels;
 
@@ -14,24 +11,13 @@ namespace PowerShellExecutor.ViewModels;
 /// </summary>
 public partial class MainWindowViewModel
 {
-    private record ColorScheme(Color Foreground, Color Background);
-    private static class CommandOutputColors
-    {
-        public static readonly ColorScheme Default = new(Colors.White, Colors.Transparent);
-        public static readonly ColorScheme Error = new(Colors.Red, Colors.Black);
-        public static readonly ColorScheme Verbose = new(Colors.Yellow, Colors.Black);
-        public static readonly ColorScheme Debug = new(Colors.Yellow, Colors.Black);
-        public static readonly ColorScheme Warning = new(Colors.Yellow, Colors.Black);
-        public static readonly ColorScheme Information = new(Colors.White, Colors.Transparent);
-    }
+    private readonly IPowerShellHostService _powerShellHostService;
+    private readonly IHistoryProvider<string> _historyProvider;
+    private readonly ICompletionProvider<string, string> _completionProvider;
     
-    private static readonly Color DefaultColor = Colors.White;
-    
-    private readonly PowerShellService _powerShellService;
-    private readonly CommandHistory _commandHistory;
+    private IReadOnlyList<CompletionElement<string>>? _currentCompletions;
+    private int _currentCompletionIndex;
 
-    private CommandCompletion? _currentCompletion;
-    private string _originalCompletionInput;
     private bool _reactToInputTextChange = true;
     private bool _commandResultDisplayHandled;
     private bool _commandExecutionStopped;
@@ -44,14 +30,16 @@ public partial class MainWindowViewModel
     /// <summary>
     /// Initializes a new instance of the <see cref="MainWindowViewModel"/> class
     /// </summary>
-    /// <param name="powerShellService">The service for working with PowerShell</param>
-    /// <param name="commandHistory">The <see cref="CommandHistory"/> object used for PowerShell command history</param>
+    /// <param name="powerShellHostService">The service for working with PowerShell</param>
+    /// <param name="historyProvider">The command history provider</param>
+    /// <param name="completionProvider">The command completion provider</param>
     /// <param name="closeWindowAction">An action to close the main application window.</param>
-    public MainWindowViewModel(PowerShellService powerShellService, CommandHistory commandHistory,
-        Action closeWindowAction)
+    public MainWindowViewModel(IPowerShellHostService powerShellHostService, IHistoryProvider<string> historyProvider,
+       ICompletionProvider<string, string> completionProvider, Action closeWindowAction)
     {
-        _powerShellService = powerShellService;
-        _commandHistory = commandHistory;
+        _powerShellHostService = powerShellHostService;
+        _historyProvider = historyProvider;
+        _completionProvider = completionProvider;
         _closeWindowAction = closeWindowAction;
         
         CommandInputEnterKeyCommand = new AsyncRelayCommand(ExecuteCommand);
@@ -64,17 +52,14 @@ public partial class MainWindowViewModel
         InputTextChangedCommand = new RelayCommand(OnInputTextChanged);
         ReadTextBoxControlCCommand = new RelayCommand(StopReadHost);
         
-        _powerShellService.RegisterCustomCmdlet<ClearHostCmdlet>();
-        _powerShellService.SetVariable(nameof(MainWindowViewModel), this);
-        
-        _powerShellService.SubscribeToErrorStream(HandleErrorStreamInput);
-        _powerShellService.SubscribeToDebugStream(HandleDebugStreamInput);
-        _powerShellService.SubscribeToVerboseStream(HandleVerboseStreamInput);
-        _powerShellService.SubscribeToWarningStream(HandleWarningStreamInput);
-        _powerShellService.SubscribeToInformationStream(HandleInformationStreamInput);
+        _powerShellHostService.SubscribeToErrorStream(HandleErrorStreamInput);
+        _powerShellHostService.SubscribeToDebugStream(HandleDebugStreamInput);
+        _powerShellHostService.SubscribeToVerboseStream(HandleVerboseStreamInput);
+        _powerShellHostService.SubscribeToWarningStream(HandleWarningStreamInput);
+        _powerShellHostService.SubscribeToInformationStream(HandleInformationStreamInput);
 
         // Set initial working directory path
-        WorkingDirectoryPath = _powerShellService.WorkingDirectoryPath;
+        WorkingDirectoryPath = _powerShellHostService.WorkingDirectoryPath;
     }
 
     /// <summary>
@@ -89,17 +74,17 @@ public partial class MainWindowViewModel
         bool noNewLine)
     {
         var text = string.Join(separator, objects);
-        var foregroundColorValue = CommandOutputColors.Default.Foreground;
-        var backgroundColorValue = CommandOutputColors.Default.Background;
+        var foregroundColorValue = OutputColorScheme.Default.Foreground;
+        var backgroundColorValue = OutputColorScheme.Default.Background;
     
         if (foregroundColor is not null)
-            foregroundColorValue = ConvertConsoleColorToColor(foregroundColor.Value);
+            foregroundColorValue = foregroundColor.Value.ConvertConsoleColorToColor();
         if (backgroundColor is not null)
-            backgroundColorValue = ConvertConsoleColorToColor(backgroundColor.Value);
+            backgroundColorValue = backgroundColor.Value.ConvertConsoleColorToColor();
     
         // noNewLine is ignored since the way output is displayed has a new line by default
         
-        AddTextToResultDocument(text, foregroundColorValue, backgroundColorValue);
+        AddTextToResultDocument(text, new(foregroundColorValue, backgroundColorValue));
     }
 
     /// <summary>
@@ -139,30 +124,6 @@ public partial class MainWindowViewModel
     public void ExitHost() => _closeWindowAction();
 
     /// <summary>
-    /// Retrieves the command history of the current host session
-    /// </summary>
-    /// <param name="count">
-    /// An optional parameter to limit the number of commands returned. If <c>null</c>, all commands are returned
-    /// </param>
-    /// <returns>
-    /// An <see creg="IEnumerable{T}"/> of anonymous objects containing the Id and the CommandLine for each history entry
-    /// </returns>
-    public IEnumerable<object> GetHistory(int? count) =>
-        _commandHistory.GetSessionHistory(count)
-            .Select((command, index) => new { Id = index + 1, CommandLine = command });
-
-    /// <summary>
-    /// Clears the command history of the current host session.
-    /// Clears either the whole history or a specified number of entries
-    /// </summary>
-    /// <param name="count">
-    /// An optional parameter specifying the number of history entries to clear. If null,
-    /// all history entries are cleared.
-    /// </param>
-    public void ClearHistory(int? count) =>
-        _commandHistory.ClearSessionHistory(count);
-
-    /// <summary>
     /// Cleans up resources and ensures any ongoing command execution is completed
     /// </summary>
     public async Task Cleanup()
@@ -179,15 +140,15 @@ public partial class MainWindowViewModel
     /// </summary>
     private async Task ExecuteCommand(CancellationToken cancellationToken)
     {
-        _commandHistory.AddCommand(CommandInput);
+        _historyProvider.AddEntry(CommandInput);
 
         ClearResultDocument();
 
-        _commandExecutionTask = Task.Run(() => _powerShellService.ExecuteScript(CommandInput, outputAsString: true));
+        _commandExecutionTask = Task.Run(() => _powerShellHostService.ExecuteScript(CommandInput, outputAsString: true));
         var executionResult = await _commandExecutionTask;
         _commandExecutionTask = null;
         
-        WorkingDirectoryPath = _powerShellService.WorkingDirectoryPath;
+        WorkingDirectoryPath = _powerShellHostService.WorkingDirectoryPath;
         CommandInput = string.Empty;
 
         if (_commandExecutionStopped)
@@ -203,8 +164,7 @@ public partial class MainWindowViewModel
         }
 
         if (executionResult is not null && executionResult.Any())
-            AddTextToResultDocument(executionResult.First().ToSingleLineString(),
-                CommandOutputColors.Default.Foreground, CommandOutputColors.Default.Background);
+            AddTextToResultDocument(executionResult.First().ToSingleLineString(), OutputColorScheme.Default);
     }
 
     /// <summary>
@@ -213,7 +173,7 @@ public partial class MainWindowViewModel
     /// </summary>
     private void SetCommandToHistoryPrev()
     {
-        var prevCommand = _commandHistory.PrevCommand();
+        var prevCommand = _historyProvider.PrevEntry();
         
         /*
          * When end of the history is reached first PrevCommand invocation
@@ -222,7 +182,7 @@ public partial class MainWindowViewModel
          * command
          */
         if (prevCommand is not null && prevCommand.Equals(CommandInput))
-            prevCommand = _commandHistory.PrevCommand();
+            prevCommand = _historyProvider.PrevEntry();
         
         CommandInput = prevCommand ?? string.Empty;
         CommandInputCaretIndex = CommandInput.Length;
@@ -234,7 +194,7 @@ public partial class MainWindowViewModel
     /// </summary>
     private void SetCommandToHistoryNext()
     {
-        var nextCommand = _commandHistory.NextCommand();
+        var nextCommand = _historyProvider.NextEntry();
         
         if (nextCommand is not null)
         {
@@ -249,7 +209,7 @@ public partial class MainWindowViewModel
     /// </summary>
     private void ResetCommandInput()
     {
-        _commandHistory.MoveToStart();
+        _historyProvider.MoveToStart();
         CommandInput = string.Empty;
     }
     
@@ -258,37 +218,21 @@ public partial class MainWindowViewModel
     /// </summary>
     private void GetNextCompletion()
     {
-        if (_currentCompletion is null) 
+        if (_currentCompletions is null)
         {
-            _currentCompletion = _powerShellService.GetCommandCompletions(
-                CommandInput, CommandInputCaretIndex);
-            _originalCompletionInput = CommandInput;
+            _currentCompletions = _completionProvider.GetCompletions(CommandInput, CommandInputCaretIndex);
+            _currentCompletionIndex = 0;
         }
         
-        if (_currentCompletion.CompletionMatches.Count == 0) return;
+        if (!_currentCompletions.Any()) return;
             
         _reactToInputTextChange = false;
         
-        var nextCompletion = _currentCompletion.GetNextResult(true);
-        var completionText = nextCompletion.CompletionText;
-        
-        /*
-         * PowerShell automatically appends directory separator at the end of directory completions.
-         * Directory completions have the ProviderContainer completion result type, but they
-         * are not the only completion type to have it, so we have to perform additional
-         * check to make sure that the completion really represents a directory, after which
-         * we can append the directory separator.
-         */
-        if (nextCompletion.ResultType == CompletionResultType.ProviderContainer &&
-            _powerShellService.IsDirectoryCompletion(completionText) &&
-            !completionText.EndsWith(Path.DirectorySeparatorChar))
-            completionText += Path.DirectorySeparatorChar;
-        
-        CommandInput = _originalCompletionInput.ReplaceSegment(
-            _currentCompletion.ReplacementIndex, 
-            _currentCompletion.ReplacementLength,
-            completionText);
-        CommandInputCaretIndex = _currentCompletion.ReplacementIndex + completionText.Length;
+        CommandInput = _currentCompletions[_currentCompletionIndex].Completion;
+        CommandInputCaretIndex = _currentCompletions[_currentCompletionIndex].Position;
+
+        if (++_currentCompletionIndex == _currentCompletions.Count)
+            _currentCompletionIndex = 0;
 
         /*
          * If there is only one completion match, reset the completions.
@@ -301,8 +245,8 @@ public partial class MainWindowViewModel
          * However, if there are multiple completions ('./D' could complete to './Desktop' and './Documents'),
          * Tab will cycle through these completions, and the next completion will not be generated until the input changes.
          */
-        if (_currentCompletion.CompletionMatches.Count == 1)
-            _currentCompletion = null;
+        if (_currentCompletions.Count == 1)
+            _currentCompletions = null;
     }
 
     /// <summary>
@@ -317,7 +261,7 @@ public partial class MainWindowViewModel
         }
 
         // If the change was user input, reset the current completion state
-        _currentCompletion = null;
+        _currentCompletions = null;
     }
     
     /// <summary>
@@ -340,10 +284,7 @@ public partial class MainWindowViewModel
     /// <summary>
     /// Stops the command execution
     /// </summary>
-    private void StopCommandExecution()
-    {
-        _powerShellService.StopExecution();
-    }
+    private void StopCommandExecution() => _powerShellHostService.StopExecution();
     
     /// <summary>
     /// Handles input from the PowerShell's error stream
@@ -352,8 +293,7 @@ public partial class MainWindowViewModel
     /// The <see cref="ErrorRecord"/> object representing the error details from the PowerShell execution
     /// </param>
     private void HandleErrorStreamInput(ErrorRecord errorRecord) =>
-        AddTextToResultDocument(errorRecord.ToSingleLineString(), 
-            CommandOutputColors.Error.Foreground, CommandOutputColors.Error.Background);
+        AddTextToResultDocument(errorRecord.ToSingleLineString(), OutputColorScheme.Error);
 
     /// <summary>
     /// Handles input from the PowerShell's warning stream
@@ -362,8 +302,7 @@ public partial class MainWindowViewModel
     /// The <see cref="WarningRecord"/> object representing the error details from the PowerShell execution
     /// </param>
     private void HandleWarningStreamInput(WarningRecord warningRecord) =>
-        AddTextToResultDocument(warningRecord.ToSingleLineString("WARNING: "), 
-            CommandOutputColors.Warning.Foreground, CommandOutputColors.Warning.Background);
+        AddTextToResultDocument(warningRecord.ToSingleLineString("WARNING: "),  OutputColorScheme.Warning);
 
     /// <summary>
     /// Handles input from the PowerShell's verbose stream
@@ -372,8 +311,7 @@ public partial class MainWindowViewModel
     /// The <see cref="VerboseRecord"/> object representing the error details from the PowerShell execution
     /// </param>
     private void HandleVerboseStreamInput(VerboseRecord verboseRecord) =>
-        AddTextToResultDocument(verboseRecord.ToSingleLineString("VERBOSE: "), 
-            CommandOutputColors.Verbose.Foreground, CommandOutputColors.Verbose.Background);
+        AddTextToResultDocument(verboseRecord.ToSingleLineString("VERBOSE: "), OutputColorScheme.Verbose);
 
     /// <summary>
     /// Handles input from the PowerShell's debug stream
@@ -382,8 +320,7 @@ public partial class MainWindowViewModel
     /// The <see cref="DebugRecord"/> object representing the error details from the PowerShell execution
     /// </param>
     private void HandleDebugStreamInput(DebugRecord debugRecord) =>
-        AddTextToResultDocument(debugRecord.ToSingleLineString("DEBUG: "), 
-            CommandOutputColors.Debug.Foreground, CommandOutputColors.Debug.Background);
+        AddTextToResultDocument(debugRecord.ToSingleLineString("DEBUG: "), OutputColorScheme.Debug);
     
     /// <summary>
     /// Handles input from the PowerShell's information stream
@@ -392,35 +329,6 @@ public partial class MainWindowViewModel
     /// The <see cref="InformationRecord"/> object representing the error details from the PowerShell execution
     /// </param>
     private void HandleInformationStreamInput(InformationRecord informationRecord) =>
-        AddTextToResultDocument(informationRecord.ToSingleLineString(), 
-            CommandOutputColors.Information.Foreground, CommandOutputColors.Information.Background);
-
-    /// <summary>
-    /// Converts a <see cref="ConsoleColor"/> to a <see cref="Color"/>
-    /// </summary>
-    /// <param name="consoleColor">The <see cref="ConsoleColor"/> to convert</param>
-    /// <returns>The corresponding <see cref="Color"/></returns>
-    private static Color ConvertConsoleColorToColor(ConsoleColor consoleColor)
-    {
-        return consoleColor switch
-        {
-            ConsoleColor.Black => Colors.Black,
-            ConsoleColor.DarkBlue => Colors.DarkBlue,
-            ConsoleColor.DarkGreen => Colors.DarkGreen,
-            ConsoleColor.DarkCyan => Colors.DarkCyan,
-            ConsoleColor.DarkRed => Colors.DarkRed,
-            ConsoleColor.DarkMagenta => Colors.DarkMagenta,
-            ConsoleColor.DarkYellow => Colors.Olive,
-            ConsoleColor.Gray => Colors.Gray,
-            ConsoleColor.DarkGray => Colors.DarkGray,
-            ConsoleColor.Blue => Colors.Blue,
-            ConsoleColor.Green => Colors.Green,
-            ConsoleColor.Cyan => Colors.Cyan,
-            ConsoleColor.Red => Colors.Red,
-            ConsoleColor.Magenta => Colors.Magenta,
-            ConsoleColor.Yellow => Colors.Yellow,
-            ConsoleColor.White => Colors.White,
-            _ => DefaultColor
-        };
-    }
+        AddTextToResultDocument(informationRecord.ToSingleLineString(), OutputColorScheme.Information);
+    
 }

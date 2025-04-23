@@ -1,7 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Management.Automation;
 
-namespace PowerShellExecutor.PowerShellUtilities;
+namespace PowerShellExecutor.Interfaces;
 
 /// <summary>
 /// Represents an abstraction for executing PowerShell scripts and commands

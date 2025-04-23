@@ -2,25 +2,26 @@ using System.Collections.ObjectModel;
 using System.Management.Automation;
 using System.Management.Automation.Language;
 using Moq;
+using PowerShellExecutor.Interfaces;
 using PowerShellExecutor.PowerShellUtilities;
 using PowerShellExecutor.Tests.Comparers;
 
 namespace PowerShellExecutor.Tests;
 
-public class PowerShellServiceTests
+public class PowerShellHostServiceTests
 {
     private class InvalidTestCmdlet : PSCmdlet { }
 
     private const string OutStringCommand = "Out-String";
     private const string Script = "script";
 
-    private readonly PowerShellService _powerShellService;
+    private readonly PowerShellHostService _powerShellHostService;
     private readonly Mock<IPowerShell> _powerShellWrapperMock;
 
-    public PowerShellServiceTests()
+    public PowerShellHostServiceTests()
     {
         _powerShellWrapperMock = new Mock<IPowerShell>();
-        _powerShellService = new PowerShellService(_powerShellWrapperMock.Object);
+        _powerShellHostService = new PowerShellHostService(_powerShellWrapperMock.Object);
     }
 
     private static ErrorRecord CreateErrorRecord(ParseError error) =>
@@ -45,7 +46,7 @@ public class PowerShellServiceTests
     [Fact]
     public void ExecuteScript_NullScript_ThrowsArgumentNullException()
     {
-        Assert.Throws<ArgumentNullException>(() => _powerShellService.ExecuteScript(null));
+        Assert.Throws<ArgumentNullException>(() => _powerShellHostService.ExecuteScript(null));
     }
 
     [Fact]
@@ -59,7 +60,7 @@ public class PowerShellServiceTests
         _powerShellWrapperMock.Setup(ps => ps.Invoke()).Returns(resultCollection);
 
         // Act
-        var result = _powerShellService.ExecuteScript(Script, true);
+        var result = _powerShellHostService.ExecuteScript(Script, true);
 
         // Assert
         _powerShellWrapperMock.Verify(ps => ps.Clear(), Times.Once);
@@ -83,7 +84,7 @@ public class PowerShellServiceTests
         _powerShellWrapperMock.Setup(ps => ps.Invoke()).Returns(expectedResult);
 
         // Act
-        var result = _powerShellService.ExecuteScript(Script);
+        var result = _powerShellHostService.ExecuteScript(Script);
 
         // Assert
         _powerShellWrapperMock.Verify(ps => ps.Clear(), Times.Once);
@@ -101,7 +102,7 @@ public class PowerShellServiceTests
             .Returns([]);
         
         // Act
-        var result = _powerShellService.ExecuteScript(Script);
+        var result = _powerShellHostService.ExecuteScript(Script);
 
         // Assert
         _powerShellWrapperMock.Verify(ps => ps.Clear(), Times.Once);
@@ -119,7 +120,7 @@ public class PowerShellServiceTests
         _powerShellWrapperMock.Setup(ps => ps.ErrorStream).Returns(errorStream);
 
         // Act
-        var result = _powerShellService.ExecuteScript(Script);
+        var result = _powerShellHostService.ExecuteScript(Script);
 
         // Assert
         _powerShellWrapperMock.Verify(ps => ps.Clear(), Times.Once);
@@ -142,7 +143,7 @@ public class PowerShellServiceTests
         _powerShellWrapperMock.Setup(ps => ps.ErrorStream).Returns(errorStream).Verifiable();
 
         // Act
-        var result = _powerShellService.ExecuteScript(Script);
+        var result = _powerShellHostService.ExecuteScript(Script);
 
         // Assert
         _powerShellWrapperMock.Verify(ps => ps.Clear(), Times.Once);
@@ -163,23 +164,17 @@ public class PowerShellServiceTests
         _powerShellWrapperMock.Setup(ps => ps.ErrorStream).Returns(errorStream).Verifiable();
 
         // Act
-        var result = _powerShellService.ExecuteScript(Script);
+        var result = _powerShellHostService.ExecuteScript(Script);
 
         // Assert
         _powerShellWrapperMock.Verify(ps => ps.Clear(), Times.Once);
         _powerShellWrapperMock.Verify(ps => ps.ErrorStream, Times.Once);
         Assert.Equal(expectedErrorRecords, errorStream.ToArray());
     }
-
-    [Fact]
-    public void IsDictionaryCompletion_NullCompletion_ArgumentNullExceptionThrown()
-    {
-        Assert.Throws<ArgumentNullException>(() => _powerShellService.IsDirectoryCompletion(null));
-    }
-
+    
     [Fact]
     public void RegisterCustomCmdlet_TypeWithoutCmdletAttribute_InvalidOperationExceptionThrown()
     {
-        Assert.Throws<InvalidOperationException>(() => _powerShellService.RegisterCustomCmdlet<InvalidTestCmdlet>());
+        Assert.Throws<InvalidOperationException>(() => _powerShellHostService.RegisterCustomCmdlet<InvalidTestCmdlet>());
     }
 }

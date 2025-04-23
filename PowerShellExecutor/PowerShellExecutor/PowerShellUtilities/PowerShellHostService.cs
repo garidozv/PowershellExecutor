@@ -1,29 +1,29 @@
-using System.IO;
 using System.Management.Automation;
 using System.Reflection;
+using PowerShellExecutor.Interfaces;
 
 namespace PowerShellExecutor.PowerShellUtilities;
 
 /// <summary>
-/// A service that provides a simple interface for working with PowerShell
+/// Provides functionality for hosting and interacting with a PowerShell environment
 /// </summary>
-public class PowerShellService
+public class PowerShellHostService : IPowerShellHostService
 {
     private readonly IPowerShell _powerShell;
     private bool _executionStopped;
 
     /// <summary>
-    /// Creates an instance of <see cref="PowerShellService"/> and sets the
+    /// Creates an instance of <see cref="PowerShellHostService"/> and sets the
     /// working directory to the user's home directory 
     /// </summary>
-    public PowerShellService(IPowerShell powerShell)
+    public PowerShellHostService(IPowerShell powerShell)
     {
         _powerShell = powerShell;
         SetToHomeDirectory();
     }
 
     /// <summary>
-    /// Gets the path to current PowerShell working directory 
+    /// Gets the path to the current PowerShell working directory 
     /// </summary>
     public string WorkingDirectoryPath => _powerShell.WorkingDirectoryPath;
 
@@ -80,6 +80,7 @@ public class PowerShellService
 
         try
         {
+            _executionStopped = false;
             _powerShell.Clear();
             _powerShell.AddScript(script);
 
@@ -104,11 +105,6 @@ public class PowerShellService
                         new Exception(error.Message), "Parse error", ErrorCategory.ParserError, null));
                 }
             }
-        }
-        finally
-        {
-            // Reset the flag here, in case that stopped pipeline throws an exception
-            _executionStopped = false;
         }
         
         return null;
@@ -151,30 +147,6 @@ public class PowerShellService
     /// </summary>
     public void SubscribeToInformationStream(Action<InformationRecord> action) =>
         SubscribeToStream(action, _powerShell.InformationStream);
-    
-    /// <summary>
-    /// Retrieves the list of command completions based on the given input and cursor position
-    /// </summary>
-    /// <param name="input">The input string for which completions are to be generated</param>
-    /// <param name="cursorIndex">The index of the cursor position in the input string</param>
-    /// <returns>A <see cref="CommandCompletion"/> object containing the available completions</returns>
-    public CommandCompletion GetCommandCompletions(string input, int cursorIndex) =>
-         _powerShell.GetCommandCompletion(input, cursorIndex);
-    
-    /// <summary>
-    /// Determines whether the given completion corresponds to a directory path.
-    /// If the provided completion is a relative path, it is combined with the
-    /// current working directory to form the full path.
-    /// </summary>
-    /// <param name="completion">The completion string to check</param>
-    /// <returns><c>true</c> if the completion corresponds to a directory; otherwise, <c>false</c>.</returns>
-    public bool IsDirectoryCompletion(string completion)
-    {
-        ArgumentNullException.ThrowIfNull(completion);
-        
-        var fullPath = Path.IsPathRooted(completion) ? completion : Path.Combine(WorkingDirectoryPath, completion);
-        return Directory.Exists(fullPath);
-    }
     
     /// <summary>
     /// Removes an existing PowerShell function with the specified name
