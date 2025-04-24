@@ -1,5 +1,6 @@
 using System.Management.Automation;
 using System.Windows;
+using System.Windows.Media;
 using CommunityToolkit.Mvvm.Input;
 using PowerShellExecutor.Helpers;
 using PowerShellExecutor.Interfaces;
@@ -11,6 +12,11 @@ namespace PowerShellExecutor.ViewModels;
 /// </summary>
 public partial class MainWindowViewModel
 {
+    private const string BannerMessage = """
+                                         Welcome to PowerShell Executor! 
+                                         - Made by garido :) 
+                                         """;
+    
     private readonly IPowerShellHostService _powerShellHostService;
     private readonly IHistoryProvider<string> _historyProvider;
     private readonly ICompletionProvider<string, string> _completionProvider;
@@ -60,6 +66,10 @@ public partial class MainWindowViewModel
 
         // Set initial working directory path
         WorkingDirectoryPath = _powerShellHostService.WorkingDirectoryPath;
+        
+        // Set banner message
+        AddTextToResultDocument(BannerMessage, 
+            new OutputColorScheme(Colors.Gold, Colors.Transparent));
     }
 
     /// <summary>
