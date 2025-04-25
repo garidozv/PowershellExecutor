@@ -2,6 +2,7 @@
 using System.Reflection;
 using System.Windows;
 using PowerShellExecutor.CustomCmdlets;
+using PowerShellExecutor.Helpers;
 using PowerShellExecutor.PowerShellUtilities;
 using PowerShellExecutor.ViewModels;
 
@@ -37,7 +38,7 @@ public partial class MainWindow : Window
         
         // Set up view model, and initialize necessary environment variable with its reference
         _viewModel = new MainWindowViewModel(powerShellService, _powerShellCommandHistoryProvider, 
-            powerShellCompletionProvider,  () => Dispatcher.Invoke(Close));
+            powerShellCompletionProvider, new ApplicationDispatcher(),  () => Dispatcher.Invoke(Close));
         powerShellService.SetVariable(nameof(MainWindowViewModel), _viewModel);
 
         DataContext = _viewModel;

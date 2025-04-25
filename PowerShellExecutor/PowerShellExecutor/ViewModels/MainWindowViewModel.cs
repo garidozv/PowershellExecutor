@@ -20,6 +20,7 @@ public partial class MainWindowViewModel
     private readonly IPowerShellHostService _powerShellHostService;
     private readonly IHistoryProvider<string> _historyProvider;
     private readonly ICompletionProvider<string, string> _completionProvider;
+    private readonly IDispatcher _dispatcher;
     
     private IReadOnlyList<CompletionElement<string>>? _currentCompletions;
     private int _currentCompletionIndex;
@@ -39,14 +40,16 @@ public partial class MainWindowViewModel
     /// <param name="powerShellHostService">The service for working with PowerShell</param>
     /// <param name="historyProvider">The command history provider</param>
     /// <param name="completionProvider">The command completion provider</param>
+    /// <param name="dispatcher">The dispatcher used to execute code that works with UI</param>
     /// <param name="closeWindowAction">An action to close the main application window.</param>
     public MainWindowViewModel(IPowerShellHostService powerShellHostService, IHistoryProvider<string> historyProvider,
-       ICompletionProvider<string, string> completionProvider, Action closeWindowAction)
+       ICompletionProvider<string, string> completionProvider, IDispatcher dispatcher, Action closeWindowAction)
     {
         _powerShellHostService = powerShellHostService;
         _historyProvider = historyProvider;
         _completionProvider = completionProvider;
         _closeWindowAction = closeWindowAction;
+        _dispatcher = dispatcher;
         
         CommandInputEnterKeyCommand = new AsyncRelayCommand(ExecuteCommand);
         ReadTextBoxEnterKeyCommand = new RelayCommand(SubmitReadTextBox);
@@ -80,8 +83,8 @@ public partial class MainWindowViewModel
     /// <param name="backgroundColor">The color of the background to display. If null, uses the default background color</param>
     /// <param name="separator">The separator string to use when concatenating the objects</param>
     /// <param name="noNewLine">A flag indicating whether to suppress the automatic newline at the end of the output</param>
-    public void WriteHost(object[] objects, ConsoleColor? foregroundColor, ConsoleColor? backgroundColor, string separator,
-        bool noNewLine)
+    public void WriteHost(object[] objects, ConsoleColor? foregroundColor, ConsoleColor? backgroundColor, 
+        string separator, bool noNewLine)
     {
         var text = string.Join(separator, objects);
         var foregroundColorValue = OutputColorScheme.Default.Foreground;
@@ -94,7 +97,8 @@ public partial class MainWindowViewModel
     
         // noNewLine is ignored since the way output is displayed has a new line by default
         
-        AddTextToResultDocument(text, new(foregroundColorValue, backgroundColorValue));
+        if (!text.Equals(string.Empty))
+            AddTextToResultDocument(text, new(foregroundColorValue, backgroundColorValue));
     }
 
     /// <summary>

@@ -195,7 +195,7 @@ public partial class MainWindowViewModel  : INotifyPropertyChanged
     /// </remarks>
     public void AddTextToResultDocument(string text, OutputColorScheme outputColorScheme)
     {
-        Application.Current.Dispatcher.Invoke(() =>
+        _dispatcher.Invoke(() =>
         {
             var paragraph = new Paragraph(new Run(text)
             {
@@ -219,7 +219,7 @@ public partial class MainWindowViewModel  : INotifyPropertyChanged
     /// </remarks> 
     public void ClearResultDocument()
     {
-        Application.Current.Dispatcher.Invoke(() =>
+        _dispatcher.Invoke(() =>
         {
             _resultDocument.Blocks.Clear();
             OnPropertyChanged(nameof(ResultDocument));
