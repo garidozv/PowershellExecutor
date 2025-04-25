@@ -4,6 +4,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PowerShellExecutor", "Power
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PowerShellExecutor.Tests", "PowerShellExecutor.Tests\PowerShellExecutor.Tests.csproj", "{DB771E72-DF06-4126-9406-82523AF886BF}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PowerShellExecutor.UI.Tests", "PowerShellExecutor.UI.Tests\PowerShellExecutor.UI.Tests.csproj", "{6D78B352-F075-4AAF-8EFE-A3F6C3A059BF}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -18,5 +20,9 @@ Global
 		{DB771E72-DF06-4126-9406-82523AF886BF}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{DB771E72-DF06-4126-9406-82523AF886BF}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{DB771E72-DF06-4126-9406-82523AF886BF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6D78B352-F075-4AAF-8EFE-A3F6C3A059BF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6D78B352-F075-4AAF-8EFE-A3F6C3A059BF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6D78B352-F075-4AAF-8EFE-A3F6C3A059BF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6D78B352-F075-4AAF-8EFE-A3F6C3A059BF}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
