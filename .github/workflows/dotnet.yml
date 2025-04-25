@@ -24,4 +24,6 @@ jobs:
     - name: Build
       run: dotnet build ./PowerShellExecutor/PowerShellExecutor.sln --no-restore
     - name: Test
-      run: dotnet test ./PowerShellExecutor/PowerShellExecutor.Tests/PowerShellExecutor.Tests.csproj --no-build --verbosity normal
+      run: |
+        dotnet test ./PowerShellExecutor/PowerShellExecutor.Tests/PowerShellExecutor.Tests.csproj --no-build --verbosity normal
+        dotnet test ./PowerShellExecutor/PowerShellExecutor.UI.Tests/PowerShellExecutor.UI.Tests.csproj --no-build --verbosity normal
