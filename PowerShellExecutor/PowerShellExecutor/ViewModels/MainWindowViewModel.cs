@@ -29,7 +29,7 @@ public partial class MainWindowViewModel
     private bool _commandResultDisplayHandled;
     private bool _commandExecutionStopped;
     
-    private readonly AutoResetEvent _readTextBoxSubmitted = new(false);
+    private readonly AutoResetEvent _readTextEvent = new(false);
     private Task<IEnumerable<PSObject>?>? _commandExecutionTask;
     
     private readonly Action _closeWindowAction;
@@ -113,7 +113,7 @@ public partial class MainWindowViewModel
         PromptText = prompt is null ? string.Empty : $"{string.Join(' ', prompt)}:";
         ReadTextBoxVisibility = Visibility.Visible;
         
-        _readTextBoxSubmitted.WaitOne();
+        _readTextEvent.WaitOne();
         
         var res = ReadText;
         
@@ -144,8 +144,8 @@ public partial class MainWindowViewModel
     {
         if (_commandExecutionTask is not null)
         {
-            _readTextBoxSubmitted.Set();
-            await _commandExecutionTask.ConfigureAwait(false);
+            _readTextEvent.Set();
+            await _commandExecutionTask;
         }
     }
     
@@ -158,6 +158,7 @@ public partial class MainWindowViewModel
 
         ClearResultDocument();
 
+        // Task is stored to allow for graceful cleanup
         _commandExecutionTask = Task.Run(() => _powerShellHostService.ExecuteScript(CommandInput, outputAsString: true));
         var executionResult = await _commandExecutionTask;
         _commandExecutionTask = null;
@@ -283,7 +284,7 @@ public partial class MainWindowViewModel
     /// </summary>
     private void SubmitReadTextBox()
     {
-        _readTextBoxSubmitted.Set();
+        _readTextEvent.Set();
     }
     
     /// <summary>
@@ -292,7 +293,7 @@ public partial class MainWindowViewModel
     private void StopReadHost()
     {
         _commandExecutionStopped = true;
-        _readTextBoxSubmitted.Set();
+        _readTextEvent.Set();
     }
     
     /// <summary>
