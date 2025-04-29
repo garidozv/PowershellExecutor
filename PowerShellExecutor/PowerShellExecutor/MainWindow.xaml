@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
         xmlns:local="clr-namespace:PowerShellExecutor"
-        xmlns:mvvm="clr-namespace:PowerShellExecutor.MVVM"
+        xmlns:behaviors="clr-namespace:PowerShellExecutor.Behaviors"
         xmlns:viewModel="clr-namespace:PowerShellExecutor.ViewModels"
         mc:Ignorable="d"
         d:DataContext="{d:DesignInstance viewModel:MainWindowViewModel, IsDesignTimeCreatable=True}"
@@ -72,7 +72,7 @@
                         UpdateSourceTrigger=PropertyChanged}">
                 
                 <i:Interaction.Behaviors>
-                    <mvvm:BindableCaretIndexBehavior CaretIndex="{Binding CommandInputCaretIndex, Mode=TwoWay}" />
+                    <behaviors:BindableCaretIndexBehavior CaretIndex="{Binding CommandInputCaretIndex, Mode=TwoWay}" />
                 </i:Interaction.Behaviors>
 
                 <i:Interaction.Triggers>
@@ -143,12 +143,15 @@
             
         </Grid>
         
-        <mvvm:BindableRichTextBox Grid.Row="2" x:Name="CommandResultRichTextBox"
+        <RichTextBox Grid.Row="2" Name="CommandResultRichTextBox"
                  Style="{StaticResource RichTextBoxPowerShellStyle}"
                  IsReadOnly="True"
-                 VerticalScrollBarVisibility="Auto"
-                 Document="{Binding ResultDocument,
-                    Mode=OneWay,
-                    UpdateSourceTrigger=PropertyChanged}"/>
+                 VerticalScrollBarVisibility="Auto">
+            
+            <i:Interaction.Behaviors>
+                <behaviors:BindableDocumentBehavior Document="{Binding ResultDocument, Mode=OneWay}"/>
+            </i:Interaction.Behaviors>
+            
+        </RichTextBox>
     </Grid>
 </Window>
